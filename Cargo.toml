@@ -1,0 +1,93 @@
+[package]
+name = "catalogames"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/SirHexa10t/catalogames"
+description = "Track game bundle deals and sort out your games library."
+readme = "README.md"
+keywords = ["games", "bundle", "deals", "humblebundle"]
+categories = ["command-line-utilities", "api-bindings"]
+# Two binaries exist, so plain `cargo run` needs to be told which one is the program. Without
+# this it refuses to choose and the documented entry point stops working.
+default-run = "catalogames"
+
+[features]
+# The CLI is opt-out so that projects embedding this crate as a library do not
+# pay for clap. `cargo run` keeps working because the feature is on by default.
+default = ["cli"]
+cli = ["dep:clap", "dep:terminal_choice"]
+# The inventory generator. Off by default: it is a rarely-run maintenance tool that makes
+# hundreds of requests, and `cargo install` should not ship it beside the real CLI.
+tools = []
+
+# Programs expected on PATH when the program RUNS. Nothing here is compiled, downloaded or
+# checked by a build — cargo ignores this table. It is declared so that a project packaging
+# `catalogames` can prepare the environment from the manifest instead of from the source, which
+# is what an encapsulating project needs to know ahead of time.
+[[package.metadata.runtime-dependencies]]
+name = "legendary"
+optional = true
+required-for = "gamelib epic"
+purpose = "Reads the Epic Games Store library. Epic publishes no API of their own for it."
+probe = "legendary --version"
+uses = "legendary list --json"
+install = "pipx install legendary-gl"
+home = "https://github.com/derrod/legendary"
+# No minimum version: `list --json` has been present throughout, and a floor picked without a
+# release that actually breaks it would be a number nobody could trace back to anything.
+
+[dependencies]
+# Column alignment. Its width measurement counts what a terminal actually draws, so a CJK
+# glyph — one character, two cells wide — no longer pushes a row out of line, and it leaves
+# ANSI colour codes out of the width entirely.
+table_formatter = { git = "https://github.com/SirHexa10t/table_formatter", branch = "main" }
+
+# Both of these already resolve in the tree via reqwest, so declaring them
+# directly adds no crates — it only stops us relying on a transitive dependency.
+log = "0.4"
+percent-encoding = "2.3"
+
+# `json` for JSON-RPC request bodies; `gzip` because Fanatical's catalogue response measured
+# 4.8x smaller compressed (283KB against 59KB).
+reqwest = { version = "0.13", features = ["blocking", "json", "gzip"] }
+scraper = "0.27"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+clap = { version = "4.6", features = ["derive"], optional = true }
+# The numbered store menu `add_project_entry` asks when it is given a bare id. Optional for the
+# same reason clap is: it draws on a terminal, so it is part of the command line rather than a
+# library capability, and a project embedding this crate should not carry a terminal UI.
+terminal_choice = { git = "https://github.com/SirHexa10t/terminal_choice", branch = "main", version = "0.1.0", optional = true }
+
+[dev-dependencies]
+# Building malformed and edge-case payloads for the parser tests.
+serde_json = "1.0"
+
+[[bin]]
+name = "catalogames"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "steam_tags"
+path = "src/bin/steam_tags.rs"
+required-features = ["tools"]
+
+[[bin]]
+name = "steam_catalogue"
+path = "src/bin/steam_catalogue.rs"
+required-features = ["tools"]
+
+[[bin]]
+name = "steam_lookup"
+path = "src/bin/steam_lookup.rs"
+required-features = ["tools"]
+
+[[bin]]
+name = "epic_lookup"
+path = "src/bin/epic_lookup.rs"
+required-features = ["tools"]

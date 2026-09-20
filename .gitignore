@@ -1,0 +1,19 @@
+/target
+
+# Everything this program writes into whatever directory it is run from.
+#
+# A snapshot carries an account's name and every game it owns; the opener script carries the
+# pages somebody picked. Both are personal, this repository is meant to be published, and one
+# `git add -A` is all it takes — so the rule is that anything written into a working directory
+# gets its entry here in the same change that starts writing it.
+/game_lib_*
+/game_wishlist_*
+/catalogames-open.sh
+
+# Checkouts of other projects, kept beside this one while they are iterated on together — a
+# dependency, or another program that shares one. Each is its OWN git repository, so `git add -A`
+# here would not add its files: it would add a gitlink naming a commit that exists only in this
+# checkout, and no .gitmodules to say where to find it. Anyone cloning would get a directory git
+# calls a submodule and cannot fill.
+/terminal_choice/
+/os_ricing/

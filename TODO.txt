@@ -1,0 +1,319 @@
+
+Fanatical sales lister
+
+Steam library lister
+
+Steam wishlist hidden items title printer
+
+Epic library lister
+
+Itch NSFW explorer?
+
+
+Price frequency comparison (with retail sellers), as seen on SteamDB
+
+Epic giveaway listing
+
+Steam giveaway listing
+
+Paste bundle URL after the title, in the form
+
+
+New game modules for Steam:
+    Free (games that are free at the time of checking, and assumed to usually remain free)
+    Delisted
+    
+
+
+Exact ids for games we only match by title (researched 2026-09-18, DEFERRED by the developer:
+"maybe even more... but some other time. I'm hopeful that we'll come across some pre-indexed
+source that'd save us the effort of data-mining"). Two halves, both blocked on the same wish:
+
+    EPIC. An Epic library entry carries only Epic's own `app_name` (an opaque slug, 453 of 590
+    are 32-hex) and a title. No Steam app-id, so ownership is matched by title and marked `?`.
+
+        `app_name` resolves to NOTHING public. Established five ways: keyword search does not
+        index launcher names; the catalog and launcher services are 401; there is no by-name
+        query in the schema; and `releaseInfo.appId` EXISTS in the public schema and comes back
+        empty in all 406 offers and items probed. Do not build against that field.
+
+        The route that works, measured: title -> Epic's own searchStore -> pageSlug ->
+        Wikidata P6278 -> P1733. Scored against recorded answers on 100 games: 87 correct,
+        0 wrong, 13 no-match — and 7 of the 13 were the test feeding Wikidata labels rather than
+        real titles, which we do not have to do. Precision was perfect; it fails by missing.
+        Needs NO legendary re-run, no parser change and no schema change: our stored titles are
+        already Epic's store titles (8 of Epic's 13 current giveaways are in the library and all
+        8 matched exactly). Cost is ~590 keyword requests at generation time, batchable by
+        GraphQL alias.
+
+        Its ceiling is Wikidata's coverage, not the mechanism: ~445 of 590 (75%) of our titles
+        reach an item carrying both properties, so about a quarter stay title-matched whatever we
+        build. The misses are UNFILLED properties on items that exist, so the number drifts up on
+        its own as editors fill P6278 — and Wikidata is CC0, so a committed table is permitted.
+
+        Ambiguity, and it is small: 14 of 2,444 joinable slugs (0.6%) reach two Steam app-ids.
+        Filtering to appdetails type == "game" collapses the two DLC cases; the other 12 are
+        genuine pairs (GOTY vs base, remaster vs original, Red Dead Online vs RDR2) and one is
+        simply a wrong P1733 upstream. The rule is: emit neither and report it ambiguous, as
+        `crossover::ambiguous` already does. No tiebreak survives the set — lowest app-id picks
+        the wrong game for hello-neighbor-hide-and-seek, newest picks Red Dead Online.
+
+        Nothing else is committable. IGDB has the right shape and free access, and the Twitch
+        agreement forbids redistribution outright with a 24-hour cache limit. PCGamingWiki
+        carries both ids under CC BY-NC-SA — the NC alone rules it out for a crate that intends
+        to publish. SteamGridDB is artwork keyed on store ids, not a crosswalk. Three GitHub
+        searches for an existing Epic-to-Steam mapping returned nothing.
+
+    STEAM. A `[owned on Steam?]` mark means we could not get an app-id for the game on sale, so
+    its title was compared against the library's names. It happens because a store that publishes
+    no app-id (Humble publishes none) can only be resolved through `steam_inventory`, which holds
+    415 entries. Names are nearly unique — 4 of 2,282 normalised names reach two app-ids, 0.18%,
+    and all four are GOTY/remaster/edition pairs — so the guess is usually right, and wrong in
+    exactly the way that is hard to notice.
+
+        The keyless bulk list is GONE: ISteamApps/GetAppList now answers "Method 'GetAppList' not
+        found in interface 'ISteamApps'" on v1, v2 and v0002, with the rest of Steam reachable on
+        the same probe. It is a withdrawn method, not a moved path, so it will not come back.
+
+
+A local snapshot instead of a curated table (researched 2026-09-18, DEFERRED — the developer
+wants "a big text file... queried at runtime", ms lookups instead of minutes at compile time):
+
+    THE CATALOGUE IS CHEAP. IStoreBrowseService/GetItems/v1 is keyless, takes a JSON `input_json`
+    of up to at least 150 app-ids per GET, and returns per item: both review summaries, platforms
+    WITH steam_deck_compat_category, release as a UNIX TIMESTAMP, tags with VOTE WEIGHTS,
+    developers, publishers, franchises, categories and content descriptors. Confirmed here: all
+    415 committed entries fetched in 3 requests. A full 187,144-game sweep is roughly 1,250
+    requests, about 20 minutes, JSON, no HTML parsing. It supersedes the store-search HTML route
+    on every field except enumeration, for which IStoreService/GetAppList is 4 requests behind a
+    Web API key with `if_modified_since` making refreshes nearly free.
+
+    ONLY THE REVIEW BAND IS HARD, and the reason is the population this project chose. Valve's
+    bulk surfaces expose exactly two summaries — `summary_language_specific` (english + steam)
+    and `summary_filtered` (all languages + steam) — and NEITHER is `language=all` +
+    `purchase_type=all`, which is what src/steam/store.rs asks for and what steam_inventory's
+    house rules require, because key-activated copies are what a bundle catalogue is about. The
+    all/all figure is exposed nowhere in the modern store API. It comes only from appreviews,
+    per app.
+
+        Measured here, our 415 committed entries against Valve's filtered band: 384 identical
+        (92%), 26 a different band (6%), 5 where the filtered set has too few reviews to band at
+        all. So adopting the filtered band is a 6% degradation, not a wholesale one — but a
+        silent one, since every band would still look plausible.
+
+        Also measured, and it sharpens a house rule: our all/all review COUNT is higher in 412 of
+        415 (99%), while our approval PERCENTAGE is lower in 34%, higher in 24% and equal in 41%,
+        mean -0.44 points. steam_inventory's "an entry here reads higher than the page" is true of
+        the count and not of the percentage; worth wording precisely if that doc is ever revised.
+
+        The way out is scope, not a better source: the band is only needed for the few hundred
+        games a listing actually shows, not for 187,144. The catalogue comes from the bulk pass;
+        the band comes from appreviews for what is on screen, which is what the program already
+        does today and is well inside the documented 100,000-calls-a-day allowance.
+
+    EPIC IS THE EASY HALF. searchStore pages at a hard cap of 40 per request; the category
+    "games/edition/base" totals 7,008, so a full sweep is 176 requests (all 27,695 offers is
+    693). Confirmed here: title, namespace and pageSlug come back on essentially every element
+    (40/40 and 39/40 on the first page). Tags arrive as id AND name inline, so unlike Steam there
+    is no 446-entry dictionary to join. There is NO review data at all — criticReviews,
+    productRating and reviews are absent from the schema, not empty. Unreleased titles carry a
+    SENTINEL release date of 2099-12-29T05:00:00.000Z rather than null, which will sort every
+    unreleased game to the end of time if taken at face value.
+
+        This is also what removes the privacy question: a bulk sweep plus a LOCAL title match
+        needs no per-title queries, so nothing about anyone's library is ever sent to Epic.
+        Prefer it over the per-title search route for that reason alone.
+
+    NO THIRD-PARTY DATASET CARRIES THE BAND, at any population. SteamSpy gives raw positive and
+    negative counts, from which Valve's tier cannot be reconstructed (the tier depends on the
+    unrounded ratio AND the count), states no population, and carries no licence grant at all —
+    only a bare copyright line — so it is fetch-yes, commit-no. steam-dataset-2025 stores about
+    four individual reviews per app, not summaries, and is twenty months stale. The overriding
+    point: a third party cannot license Valve's data, so a CC0 or MIT badge on a scraped dump is
+    the uploader asserting rights over facts they collected.
+
+    TERMS. Fetching to the user's own machine is EXPRESSLY LICENSED — Steam Web API Terms of Use
+    section 2 permits distributing Steam Data "to end users for their personal use via your
+    Application", and storage is contemplated with a disclosure-and-location condition rather
+    than a time limit. THERE IS NO RETENTION OR CACHE CLAUSE ANYWHERE; the only deletion trigger
+    is termination, which confirms copies are permitted while it stands. This is the clause that
+    killed IGDB and Valve does not have one. Committing a derived file is outside the grant
+    (section 9 reserves all rights not explicitly given), which costs nothing since the design
+    wanted is the runtime one. The Subscriber Agreement's automation clause is about gameplay and
+    accounts, not the storefront's JSON. Epic's terms address none of this at all — sixteen terms
+    checked, all zero — so the Epic side is unaddressed rather than unsettled.
+
+    ONE DECISION LEFT TO WHOEVER SHIPS IT, and the house already has a precedent for this shape.
+    store.steampowered.com/robots.txt disallows nine specific paths and permits /api/,
+    /appreviews/ and /search/. api.steampowered.com/robots.txt is "User-Agent: *" then
+    "Disallow: /", complete. IStoreBrowseService/GetItems and IStoreService/GetTagList are on the
+    disallowed host, while appdetails, appreviews and store search are on the permissive one.
+    Note that src/bin/steam_tags.rs ALREADY fetches GetTagList from the disallowed host, so the
+    question is not whether to start using it but whether one request becoming ~936 changes the
+    character of access that already ships.
+
+        This is the mirror image of the conflict src/discounted_sales/humble/mod.rs already documents — there the
+        prose forbade while the machine-readable rules read as permission; here the machine-
+        readable rule forbids while Valve's own section 2 expressly licenses. That module's
+        answer was to state the conflict and leave the decision to whoever ships, and the same
+        treatment fits here. The fallback if it goes the other way is characterised: the
+        store-search HTML route on the permissive host, 1,872 requests, losing Deck, Metacritic
+        and machine-readable dates.
+
+    STILL UNMEASURED, and it needs the developer's own machine, no account:
+        steamcmd +login anonymous +app_info_print 1867240 +quit
+    That app's two populations are two bands apart, so review_score discriminates cleanly — 8
+    means appinfo.vdf carries Valve's filtered figure and has the same defect as the store page,
+    6 means it carries all/all and appinfo (one local file, every app, no crawl) answers the
+    whole question. The prediction on file is 8, since every client-facing Valve surface uses the
+    filtered population. Whether an anonymous sync populates a COMPLETE appinfo.vdf is the second
+    half of the same check.
+
+    All of it fits the existing generator pattern: a rarely-run tool behind the non-default
+    `tools` feature, the way src/bin/steam_lookup.rs already does.
+
+    Two findings worth having even if neither mapping is ever built, both from Epic's metadata:
+    `mainGameItem` is present ONLY on DLC and names the parent — a structural DLC discriminator,
+    where the Steam side has none and title heuristics were rejected after "ost" matched
+    Ghostwire Tokyo and Samorost. And `ThirdPartyManagedApp` marks titles redeemed through Epic
+    that need a Ubisoft or EA account to launch, which is arguably not "owned on Epic" in the
+    sense a reader takes it.
+
+
+Things the 30,000-row sweep taught (measured 2026-09-20, before widening further):
+
+    THE SLICE IS HEAD-BIASED AND STATISTICS FROM IT WILL MISLEAD. The store's search orders by
+    its own relevance, so the first N are the popular N. Over 30,000 games, review bands 2 and 3
+    — Very Negative and Negative, which are the SAME percentage band as 1 but with fewer reviews
+    — are completely empty, while band 1 has four real entries (C&C4 Tiberian Twilight at 16% of
+    4,832; War of the Three Kingdoms at 10% of 82,111). Obscure, thinly-reviewed games simply
+    have not been reached yet. Do not compute a distribution from a partial sweep and call it
+    Steam.
+
+    `incl` IS NOT A PARENT POINTER, and it was mis-described twice before anyone measured it.
+    7,158 of 30,000 GAMES carry one, so it is not a supplementary-item field, and the relation
+    runs in no consistent direction: app 10 names app 80 and app 80 names app 10 back, while app
+    323180 (Portal 2 Soundtrack) names 620 and 620 names nothing at all. Read it as "these apps
+    arrive together in one store item". Still the best lead toward a product-type column; not
+    usable as a parent link without checking both directions.
+
+    NAME HEURISTICS FIRE CORRECTLY AND ARE STILL WRONG, which is why they are reported and never
+    acted on. Five names tripped the check in 30,000 and one of them is `DLC Quest` — a game
+    whose title genuinely contains the word as a word. The rule did its job; the conclusion would
+    have been wrong. Same class as "ost" inside Ghostwire Tokyo and Samorost.
+
+    RATE LIMITING IS SURVIVABLE AT THIS SCALE. 300 search pages plus 200 item batches drew five
+    HTTP 429s, every one cleared by the first 20-second backoff. Pacing at 1.5s held.
+
+    SIZE: 30,000 rows is 4.6 MB, mean line 156 chars. The full 187,144 projects to about 29 MB,
+    which git stores at roughly 40% of that and deltas to almost nothing on append.
+
+    COVERAGE at 30,000: 99% carry a developer, 99.7% a publisher, every row has tags, and all
+    30,000 app-ids are distinct — the enumeration dedup guard held across 300 pages. Deck:
+    11,637 playable, 6,304 verified, 3,172 unsupported, 8,873 unknown.
+
+
+Repair passes over the catalogue snapshot (noted 2026-09-20, for once the sweep is complete):
+
+    The bulk endpoint leaves two kinds of hole, both small enough to repair one app at a time and
+    far too large to fetch that way in the first place. `steam-issues.tsv` names every affected
+    app, so a repair pass reads that file rather than re-sweeping.
+
+    MISSING RELEASE DATES. `IStoreBrowseService/GetItems` returned no `steam_release_date` for 10
+    of the first 10,000 — all long-released, heavily-reviewed games (Sleeping Dogs, Shogun 2,
+    Mafia, Gothic), so "unreleased" is NOT the explanation; `appdetails` reports
+    `coming_soon: false` for them. The repair:
+
+        GET https://store.steampowered.com/api/appdetails?appids=<id>&filters=basic,release_date
+        -> {"<id>":{"success":true,"data":{"release_date":{"coming_soon":false,"date":"28 Aug, 2002"}}}}
+
+    Measured on three of them: Mafia yields `28 Aug, 2002` where the bulk endpoint had nothing,
+    while Sleeping Dogs and Shogun 2 come back with `date: ""` — Valve genuinely publishes none.
+    So the pass fixes some and confirms the rest as truly dateless. Note `appdetails` is on the
+    permissive host, takes ONE appid per call for every filter except `price_overview`, and costs
+    about 0.43s each — fine for tens of apps, impossible for tens of thousands.
+
+    A SEARCH LINK INSTEAD OF A GAME PAGE. A Fanatical pack whose contents the store would not
+    describe is now listed from the pack's own names, but those entries carry no Steam app-id, so
+    `render::page_of` falls back to a search URL. The catalogue index is what fixes it, through a
+    step not yet built: resolve the vendor's product NAME against the Steam name index to recover
+    the app-id. That is the same title-matching machinery the Epic mapping needs, so one
+    mechanism serves both.
+
+    UNRESOLVED APPS. The store's search lists them and the item service returns `success: 0` with
+    no record at all — delisted, region-locked or withdrawn (4 of the first 10,000: MONOPOLY
+    Poker, FINAL FANTASY XI, AION MMO, Governor of Poker 3). They are written as a row of `?`
+    so the file agrees with the store's own index, and `appdetails` is worth trying on them too.
+
+
+Fields `GetItems` returns that the sweep does NOT yet ask for (noted 2026-09-20):
+
+    The full response carries far more than the sweep requests. Everything below was confirmed by
+    asking for every `data_request` flag at once on app 620. Worth revisiting when a column is
+    wanted, since they cost nothing extra per request:
+
+        basic_info            developers, publishers NOW FETCHED as names. short_description not.
+                              Names rather than the creator_clan_account_id beside them: measured
+                              over 100 games, 38% of developers and 16% of publishers carry no
+                              clan id, so an id-and-dictionary scheme would lose a third of them.
+        categories            controller_categoryids, feature_categoryids,
+                              supported_player_categoryids                <- the `features` field
+        included_items        included_apps, included_bundles, included_packages
+                              <- NOW FETCHED. Corrected from an earlier note that called this the
+                              DLC-to-parent link outright: for a GAME it returns store packages,
+                              which is purchasing trivia. `included_apps` is the parent link, and
+                              it appears on SUPPLEMENTARY items — app 323180 (Portal 2 Soundtrack,
+                              type 11) carries included_apps [620], and appdetails agrees with
+                              fullgame {appid: 620}. A games-only sweep therefore sees it empty;
+                              widening past category1=998 is what makes the column earn its place.
+        type                  NOW FETCHED. Valve's own product kind: 0 game, 11 music. This is the
+                              discriminator a product_type column would be built on, and storing
+                              Valve's number rather than a private 0/1/2 keeps it reversible.
+        best_purchase_option  final_price_in_cents, formatted_final_price, packageid,
+                              included_game_count, must_purchase_as_set
+        purchase_options      the same, one per edition — several per game
+        package_groups        name
+        supported_languages   elanguage, full_audio, subtitles, supported (27 entries on app 620)
+        assets                header, hero_capsule, library_capsule, page_background_path, …
+        screenshots           all_ages_screenshots
+        trailers              highlights, other_trailers
+        full_description_bbcode
+        tagids                the same ids as `tags`, without the weights
+        platforms             steam_os_compat_category, steam_frame_compat_category,
+                              steam_machine_compat_category  <- beside the Deck one already taken
+
+    `tags` carries a WEIGHT per tag that the sweep currently drops. That is the vote count behind
+    the ordering, and it is what would let a reader say how strongly a tag applies rather than
+    only that it does.
+
+
+Publishing, before `cargo publish` is ever run (found 2026-09-16, not acted on — both are
+release decisions rather than refactors, so they are the developer's to make):
+
+    `table_formatter` is declared git-only with no `version` key. cargo publish refuses any
+    dependency that lacks one, so the crate cannot currently be published at all — and the
+    package metadata (keywords, categories, license, readme) says publishing is intended.
+    `terminal_choice` is declared git + version = "0.1.0", which publishes only if that version
+    actually exists on crates.io, because publish drops the git source and resolves the
+    registry.
+
+    Both are pinned to `branch = "main"` rather than a `rev`. The build therefore stops being
+    reproducible the moment either upstream moves, with no change in this tree — worth a `rev`
+    once those crates settle, and deliberately not pinned while they are being developed
+    alongside this one.
+
+
+Fanatical whole game-bundles are not listed (noted 2026-09-16, not acted on — it changes what
+`sales fanatical` shows, which is a product decision rather than a refactor):
+
+    `sales fanatical` reads only the `pickandmix` array of api/all/en, so the themed and charity
+    bundles sold at a single whole-bundle price — the ones under /en/bundle/ rather than
+    /en/pick-and-mix/ — never appear. They are not in that payload at all.
+
+    They are reachable in one call: the MCP server's `search_products` takes type="bundle" with
+    a limit of 100. The pricing already handles them; a bundle whose best tier takes the whole
+    pool renders as a whole-bundle price, which is the same path every Humble bundle takes.
+
+    What needs deciding first is volume (how many there are, and whether they belong in the same
+    listing as the pick-and-mix ones) and whether Fanatical's terms for that data differ from the
+    catalogue's.

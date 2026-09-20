@@ -1,0 +1,1055 @@
+{
+ "pickandmix": [
+  {
+   "_id": "6a7207beec324ca6ae3b6540",
+   "cover_image": "7e9bf7ea-83ee-4d14-a199-4a0df8c468ae.jpeg",
+   "name": "Build your own Fanatical Favorites Bundle (Summer 2026)",
+   "products": [
+    {
+     "_id": "61a613337cdcfa007d6f13eb",
+     "name": "Starship Troopers: Terran Command",
+     "slug": "starship-troopers-terran-command",
+     "cover": "407b579a-7bef-4bfa-9123-56410856bb36.jpeg"
+    },
+    {
+     "_id": "690b720be8911f361e9473a7",
+     "cover": "638ea0d2-753b-4955-95fe-d9514856065f.jpeg",
+     "name": "Vampire Hunters",
+     "slug": "vampire-hunters"
+    },
+    {
+     "_id": "69c53a08061283a46447582a",
+     "cover": "553c5549-7974-4089-a338-b2e52d2934a5.jpeg",
+     "name": "Outbreak Island",
+     "slug": "outbreak-island"
+    },
+    {
+     "_id": "67d2ed63eb82e56cf2dbcca3",
+     "cover": "55557e65-4071-4b88-b320-73d42d782aa6.jpeg",
+     "name": "Broken Sword - Shadow of the Templars: Reforged",
+     "slug": "broken-sword-shadow-of-the-templars-reforged"
+    },
+    {
+     "_id": "69a84aaba24edd8b74a2fd06",
+     "cover": "623632e4-bfd3-4b32-b202-7cb0f8a62b26.jpeg",
+     "name": "art of rally",
+     "slug": "art-of-rally"
+    },
+    {
+     "_id": "68b5748ee6e93c7926feb9f7",
+     "cover": "77716907-51c8-4c0c-a2da-67b6c9fb5983.jpeg",
+     "name": "Gloomy Eyes",
+     "slug": "gloomy-eyes"
+    },
+    {
+     "_id": "67bc84bd554e87760e36a14c",
+     "cover": "229dad6d-0ec9-4799-bb3e-b3cf5afbac37.jpeg",
+     "name": "Of Blades & Tails",
+     "slug": "of-blades-and-tails"
+    },
+    {
+     "_id": "69f20fe1e08c8917f4c5fe10",
+     "cover": "37896c2d-149c-4417-abc4-89fe454ab0e8.jpeg",
+     "name": "Fortune Seller",
+     "slug": "fortune-seller"
+    },
+    {
+     "_id": "6717bb4c9a7b4dc7469fd057",
+     "cover": "72ea5c43-ea6b-43d5-a9ba-39efda820aaf.jpeg",
+     "name": "FAITH: The Unholy Trinity",
+     "slug": "faith-the-unholy-trinity"
+    },
+    {
+     "_id": "6092723a8dae0600763770c3",
+     "cover": "268a3d43-eaf3-4ec1-8dcb-a1679bcad8df.jpeg",
+     "name": "Warhammer 40,000: Battlesector",
+     "slug": "warhammer-40-000-battlesector"
+    },
+    {
+     "_id": "6a04567f166949ebf6208cf6",
+     "cover": "b757051d-f8de-46df-9a9c-6871f6236c20.jpeg",
+     "name": "Rogue Trooper, AvP Classic 2000 & Dredd Triple Pack",
+     "slug": "rogue-trooper-avp-classic-2000-and-dredd-triple-pack"
+    },
+    {
+     "_id": "67e28cb76826f780286d194c",
+     "cover": "c153c676-77be-4c46-a7b5-b1a2c2ba9cea.jpeg",
+     "name": "The Witness",
+     "slug": "the-witness"
+    },
+    {
+     "_id": "67dad99e8a6651e20575584e",
+     "cover": "88c2eb8e-32a0-4554-8d90-4e051d1e1add.jpeg",
+     "name": "Everspace Ultimate Edition",
+     "slug": "everspace-ultimate-edition"
+    },
+    {
+     "_id": "68d27760ce3bde9a187a318a",
+     "cover": "0e972c35-954d-417d-a69d-7bebe2338164.jpeg",
+     "name": "Nanomon Virtual Pet",
+     "slug": "nanomon-virtual-pet"
+    },
+    {
+     "_id": "6914a37c353a4f11e3e39e98",
+     "cover": "c4bcefa7-c164-4387-bd7a-472dfb6b6229.jpeg",
+     "name": "Urban Jungle",
+     "slug": "urban-jungle"
+    },
+    {
+     "_id": "6943eb1e9e2dbb58e213d4c0",
+     "cover": "baaa3291-16f8-42be-9d05-33f0ab9b5b53.jpeg",
+     "name": "House Builder - The Atomic Age Bundle",
+     "slug": "house-builder-the-atomic-age-bundle"
+    },
+    {
+     "_id": "67c97a4c2a3fd188a3b4fb81",
+     "cover": "d634f9ae-3edd-4d24-88ed-989b1373da57.jpeg",
+     "name": "Rustler - Complete Edition",
+     "slug": "rustler-complete-edition"
+    },
+    {
+     "_id": "65d3655be938ab087d568c91",
+     "cover": "44993a4a-918f-4383-b8de-828e1488243d.jpeg",
+     "name": "Deadlink",
+     "slug": "deadlink"
+    },
+    {
+     "_id": "5e33fd08e5364e1c832a59d7",
+     "cover": "ec1ca52a-f965-44bf-aa2e-fca3641c5a70.jpeg",
+     "name": "Panzer Corps 2",
+     "slug": "panzer-corps-2"
+    }
+   ],
+   "sku": "PNM0711",
+   "slug": "fanatical-favorites-build-your-own-bundle",
+   "tiers": [
+    {
+     "quantity": 2,
+     "price": {
+      "GBP": 699,
+      "EUR": 699,
+      "USD": 699,
+      "CAD": 975,
+      "AUD": 1089,
+      "RUB": 67900,
+      "JPY": 121100
+     },
+     "_id": "6a7207beec324ca6ae3b6542"
+    },
+    {
+     "quantity": 3,
+     "price": {
+      "GBP": 999,
+      "EUR": 999,
+      "USD": 999,
+      "CAD": 1395,
+      "AUD": 1555,
+      "RUB": 97000,
+      "JPY": 173200
+     },
+     "_id": "6a7207beec324ca6ae3b6543"
+    },
+    {
+     "quantity": 5,
+     "price": {
+      "GBP": 1499,
+      "EUR": 1499,
+      "USD": 1499,
+      "CAD": 2095,
+      "AUD": 2335,
+      "RUB": 145600,
+      "JPY": 259900
+     },
+     "_id": "6a7207beec324ca6ae3b6544"
+    }
+   ],
+   "type": "bundle",
+   "valid_from": "2026-08-07T13:00:00.000Z",
+   "valid_until": "2026-09-24T07:00:00.000Z"
+  },
+  {
+   "_id": "69b988b2f81825e4eb7071ca",
+   "cover_image": "5d1d5982-b612-4e13-a5b8-fce6afa1c13c.jpeg",
+   "name": "Your Digital Life: The Complete Manuals Build your own Bundle",
+   "products": [
+    {
+     "_id": "69b97fadf81825e4eb704668",
+     "name": "Adobe Lightroom Complete Manual",
+     "slug": "adobe-lightroom-complete-manual",
+     "cover": "c129c183-3311-4c5c-b7c6-4a5526dcb6cd.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70466b",
+     "name": "Adobe Photoshop Complete Manual",
+     "slug": "adobe-photoshop-complete-manual",
+     "cover": "f5835a21-e390-4bbc-8231-b8ca5b8fe39f.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70466e",
+     "name": "AI Complete Manual",
+     "slug": "ai-complete-manual",
+     "cover": "439abf78-ecbf-44cc-82f6-82beaf8c1a04.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704671",
+     "name": "Android Complete Manual",
+     "slug": "android-complete-manual",
+     "cover": "de6b3a36-f7de-47cb-9b5e-bf66f1eeadb9.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704674",
+     "name": "Apple Intelligence Complete Manual",
+     "slug": "apple-intelligence-complete-manual",
+     "cover": "b8799aea-255b-479a-8cc6-3be038654c75.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704677",
+     "name": "Apple Watch Complete Manual",
+     "slug": "apple-watch-complete-manual",
+     "cover": "9321f3a9-efea-4b81-8508-945e90e8e4e5.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70467a",
+     "name": "Black & White Photography Complete Manual",
+     "slug": "black-white-photography-complete-manual",
+     "cover": "c81e3a10-cfb5-479b-962e-e60fc58f4791.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70467d",
+     "name": "C++ Complete Manual",
+     "slug": "c-complete-manual",
+     "cover": "a375fe41-8efe-4f5b-a839-d89b0cf3df15.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704680",
+     "name": "Canon Complete Manual",
+     "slug": "canon-complete-manual",
+     "cover": "d76556a3-7528-424e-8883-0dd148dab344.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704683",
+     "name": "Cloud Computing Complete Manual",
+     "slug": "cloud-computing-complete-manual",
+     "cover": "c942356e-c595-40a6-8e10-1b9bb199186b.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704686",
+     "name": "Coding Complete Manual",
+     "slug": "coding-complete-manual",
+     "cover": "e162ac7c-16e4-4fd7-9ad5-dce0cf20928d.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704689",
+     "name": "Digital Photography Complete Manual",
+     "slug": "digital-photography-complete-manual",
+     "cover": "443226d0-1fd1-4a5a-bca2-e6ae4b51c22b.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70468c",
+     "name": "Google Complete Manual",
+     "slug": "google-complete-manual",
+     "cover": "8458320b-5092-4cf5-b385-72c01ee94cf5.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70468f",
+     "name": "GoPro Complete Manual",
+     "slug": "go-pro-complete-manual",
+     "cover": "ed2bec22-3735-4663-82b8-63636e45637c.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704692",
+     "name": "Home Networking Complete Manual",
+     "slug": "home-networking-complete-manual",
+     "cover": "253edd56-36f2-4f53-bd75-7aa127450e83.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704695",
+     "name": "Internet Security Complete Manual",
+     "slug": "internet-security-complete-manual",
+     "cover": "9b376393-3a5a-4719-9ebe-ee33a78ce2a1.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb704698",
+     "name": "iPad Complete Manual",
+     "slug": "i-pad-complete-manual",
+     "cover": "409baad6-285e-4093-b406-0f26c04b8580.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70469b",
+     "name": "iPhone Complete Manual",
+     "slug": "i-phone-complete-manual",
+     "cover": "54ce1468-800c-45d8-9cf8-d1d8965ff72c.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb70469e",
+     "name": "Landscape Photography Complete Manual",
+     "slug": "landscape-photography-complete-manual",
+     "cover": "9a00f5a9-525d-40c5-a2c8-59091069e8c5.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046a1",
+     "name": "Linux Complete Manual",
+     "slug": "linux-complete-manual",
+     "cover": "ad6eff5b-d152-42bd-bf90-86fed056a305.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046a4",
+     "name": "MacBook Complete Manual",
+     "slug": "mac-book-complete-manual",
+     "cover": "ec747e8b-b248-4069-b9c2-7ba4859c81cd.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046a7",
+     "name": "Nikon Complete Manual",
+     "slug": "nikon-complete-manual",
+     "cover": "e4e0fb30-f5cf-4e7f-926d-a56cb9e6d1f7.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046aa",
+     "name": "Nude Photography Complete Manual",
+     "slug": "nude-photography-complete-manual",
+     "cover": "6a5ffaa5-72fa-472b-ba13-2912cbd48a7b.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046ad",
+     "name": "Outdoor Photography Complete Manual",
+     "slug": "outdoor-photography-complete-manual",
+     "cover": "87897da9-1dba-4c31-a2b4-69ae8b1d7412.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046b0",
+     "name": "Python Complete Manual",
+     "slug": "python-complete-manual",
+     "cover": "51e786d4-1e24-419c-8f22-80fa7ab41dd1.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046b3",
+     "name": "Raspberry Pi Complete Manual",
+     "slug": "raspberry-pi-complete-manual",
+     "cover": "b9af3dcb-6f82-4940-981e-c8224ec3624a.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046b6",
+     "name": "Samsung Complete Manual",
+     "slug": "samsung-complete-manual",
+     "cover": "689d4674-9dfd-4d4f-a9b6-a800d935057b.jpeg"
+    },
+    {
+     "_id": "69b97fadf81825e4eb7046b9",
+     "name": "Windows 11 Complete Manual",
+     "slug": "windows-11-complete-manual",
+     "cover": "0f09fdac-b0f8-4ca3-ae11-114397a7e7b3.jpeg"
+    }
+   ],
+   "sku": "BUN3954",
+   "slug": "your-digital-life-the-complete-manuals-build-your-own-bundle",
+   "tiers": [
+    {
+     "quantity": 2,
+     "price": {
+      "GBP": 175,
+      "EUR": 204.99999999999997,
+      "USD": 199,
+      "CAD": 265,
+      "AUD": 310,
+      "RUB": 18500,
+      "JPY": 34500
+     },
+     "_id": "69b988b2f81825e4eb7071cc"
+    },
+    {
+     "quantity": 8,
+     "price": {
+      "GBP": 450,
+      "EUR": 515,
+      "USD": 499,
+      "CAD": 675,
+      "AUD": 780,
+      "RUB": 46000,
+      "JPY": 87000
+     },
+     "_id": "69b988b2f81825e4eb7071cd"
+    },
+    {
+     "quantity": 18,
+     "price": {
+      "GBP": 805.0000000000001,
+      "EUR": 935,
+      "USD": 899,
+      "CAD": 1215,
+      "AUD": 1410,
+      "RUB": 83000,
+      "JPY": 157000
+     },
+     "_id": "69b988b2f81825e4eb7071ce"
+    },
+    {
+     "quantity": 28,
+     "price": {
+      "GBP": 1075,
+      "EUR": 1245,
+      "USD": 1199,
+      "CAD": 1620,
+      "AUD": 1880,
+      "RUB": 111000,
+      "JPY": 209000
+     },
+     "_id": "69b988d1f81825e4eb707219"
+    }
+   ],
+   "type": "book-bundle",
+   "valid_from": "2026-03-27T10:00:00.000Z"
+  },
+  {
+   "_id": "694291f97b5b78ce39398529",
+   "cover_image": "2f0e995d-fa2c-4743-af09-4633534baa17.jpeg",
+   "name": "New Skills New You Build your own eLearning Bundle 3rd Edition",
+   "products": [
+    {
+     "_id": "69418e8ad02b720f6dbdf428",
+     "name": "Comic Book Animation with After Effects \u2013 Step-by-Step Course",
+     "slug": "comic-book-animation-with-after-effects-step-by-step-course",
+     "cover": "134912fd-0ff0-4a69-a91c-46ca89adb2db.png"
+    },
+    {
+     "_id": "69418e8ad02b720f6dbdf42b",
+     "name": "Level 3 Copywriting Diploma: Craft Words That Sell",
+     "slug": "level-3-copywriting-diploma-craft-words-that-sell",
+     "cover": "4fbca9e6-f5a2-40d1-82fc-9112a312d83d.png"
+    },
+    {
+     "_id": "69418e8bd02b720f6dbdf42e",
+     "name": "Level 4 DIY Mastery Diploma",
+     "slug": "level-4-diy-mastery-diploma",
+     "cover": "3b794b2c-8abc-43b6-860d-421b9e2dc324.png"
+    },
+    {
+     "_id": "69418e8bd02b720f6dbdf431",
+     "name": "Master ChatGPT: Boost Marketing & Productivity with AI",
+     "slug": "master-chat-gpt-boost-marketing-productivity-with-ai",
+     "cover": "5108a6b7-a854-4ab3-9c38-3a2f46b733a9.png"
+    },
+    {
+     "_id": "69418e8bd02b720f6dbdf434",
+     "name": "Photo Manipulation for Designers: Creative Mastery",
+     "slug": "photo-manipulation-for-designers-creative-mastery",
+     "cover": "9ae98de5-d1d9-4240-9977-ba7d998371b8.png"
+    },
+    {
+     "_id": "69418e8bd02b720f6dbdf437",
+     "name": "Product Photography: From Setup to Showcase",
+     "slug": "product-photography-from-setup-to-showcase",
+     "cover": "cb42a629-8ae6-4cf2-8453-9bd404ca5f8a.png"
+    },
+    {
+     "_id": "69418e8cd02b720f6dbdf43a",
+     "name": "Professional Photography Masterclass",
+     "slug": "professional-photography-masterclass",
+     "cover": "89a1725b-1fa8-4c5c-9bda-cd179ece265e.png"
+    },
+    {
+     "_id": "69418e8cd02b720f6dbdf43d",
+     "name": "Transform Customer Service with AI & Chatbots",
+     "slug": "transform-customer-service-with-ai-chatbots",
+     "cover": "cb15bc2d-4748-478a-8a33-ef5f9debfb0f.png"
+    },
+    {
+     "_id": "69418e8cd02b720f6dbdf440",
+     "name": "Typography Design Masterclass",
+     "slug": "typography-design-masterclass",
+     "cover": "f557a1a4-62d5-446e-b22f-a226a6fb6540.png"
+    },
+    {
+     "_id": "67fce37fb355801f46c2fd7a",
+     "name": "Electrician",
+     "slug": "electrician",
+     "cover": "f5faca52-8dbc-4b08-a5d6-28e7409fb2a2.png"
+    },
+    {
+     "_id": "67fce37fb355801f46c2fd7e",
+     "name": "Leadership & Management",
+     "slug": "leadership-management",
+     "cover": "1a77d16b-d5d6-45ff-8a94-9899412ba3b8.png"
+    },
+    {
+     "_id": "67fce37fb355801f46c2fd81",
+     "name": "Introduction to Coding with HTML, CSS, & Bootstrap",
+     "slug": "introduction-to-coding-with-html-css-bootstrap",
+     "cover": "fffebebc-7449-44aa-85a4-28cf10b2a725.png"
+    },
+    {
+     "_id": "66699aca8b5e3894b39564f4",
+     "cover": "65dc1598-0f91-410b-8220-3fef5de828bc.png",
+     "name": "3D Modeling for 3D Printing",
+     "slug": "3-d-modeling-for-3-d-printing"
+    },
+    {
+     "_id": "6669806eaeffa02da27e7259",
+     "name": "Baking Course",
+     "slug": "baking-course",
+     "cover": "3824de86-0700-4776-b7d4-a629a053a299.png"
+    },
+    {
+     "_id": "66699bd50da3e895476f5745",
+     "cover": "b5ed1735-1b47-4030-8797-66b922a7e4e1.png",
+     "name": "Biohacking Your Physical and Mental Health",
+     "slug": "biohacking-your-physical-and-mental-health"
+    },
+    {
+     "_id": "6669806faeffa02da27e7272",
+     "name": "Building Your Own Computer Course",
+     "slug": "building-your-own-computer-course",
+     "cover": "6685f4c0-af62-4126-93bf-6086b638f70b.png"
+    },
+    {
+     "_id": "66698070aeffa02da27e727f",
+     "name": "Car Restoration",
+     "slug": "car-restoration",
+     "cover": "984aba81-e3f2-4e64-b04f-e4e99af18f4a.png"
+    },
+    {
+     "_id": "66698070aeffa02da27e7283",
+     "name": "Carpentry",
+     "slug": "carpentry",
+     "cover": "b37c3065-3e54-4326-a9aa-93b4466cfcf6.png"
+    },
+    {
+     "_id": "66698071aeffa02da27e7289",
+     "name": "Confidence Building & Assertiveness",
+     "slug": "confidence-building-assertiveness",
+     "cover": "74bd980a-832f-4a36-bd44-e58a8dd54d02.png"
+    },
+    {
+     "_id": "66698071aeffa02da27e728f",
+     "name": "Diet & Fitness Training",
+     "slug": "diet-fitness-training",
+     "cover": "e910415a-c4e5-4282-8163-0c5ddf4debdd.png"
+    },
+    {
+     "_id": "66698072aeffa02da27e7292",
+     "name": "Effective Methods of Public Speaking and Presentation Skill",
+     "slug": "effective-methods-of-public-speaking-and-presentation-skill",
+     "cover": "3cb7e2c9-b19a-4665-b1d3-057462542d03.png"
+    },
+    {
+     "_id": "64e5c6a3ce0ccc6885d8ad44",
+     "cover": "67dc9716-69f1-49cf-a757-b838f400ab67.png",
+     "name": "Fitness and Muscle Building Training",
+     "slug": "fitness-and-muscle-building-training"
+    },
+    {
+     "_id": "66698073aeffa02da27e729a",
+     "name": "Furniture Restoration",
+     "slug": "furniture-restoration",
+     "cover": "8161c99e-4071-4aef-a74f-70b8b3a5293e.png"
+    },
+    {
+     "_id": "66698073aeffa02da27e72a0",
+     "name": "Handyperson",
+     "slug": "handyperson",
+     "cover": "ce4cabca-3749-43da-b09f-8aacfc501870.png"
+    },
+    {
+     "_id": "66698074aeffa02da27e72a3",
+     "name": "Home Decoration and Refurbishment Course",
+     "slug": "home-decoration-and-refurbishment-course",
+     "cover": "e83c474f-29ae-4543-9924-e88d3bebc187.png"
+    },
+    {
+     "_id": "66698074aeffa02da27e72a6",
+     "name": "Introduction to Horticulture",
+     "slug": "introduction-to-horticulture",
+     "cover": "811e1a5f-7314-4ca2-b0e8-3c8428bdb095.png"
+    },
+    {
+     "_id": "66698074aeffa02da27e72ac",
+     "name": "Kitchen Gardening",
+     "slug": "kitchen-gardening",
+     "cover": "837b1889-5f37-442b-9c57-46c36d613fbe.png"
+    },
+    {
+     "_id": "66698075aeffa02da27e72b2",
+     "name": "Meditation & Mindfulness",
+     "slug": "meditation-mindfulness",
+     "cover": "600e13c1-490a-431a-b216-2404a9632e6b.png"
+    },
+    {
+     "_id": "66698075aeffa02da27e72b5",
+     "name": "Muscle Building for Beginners",
+     "slug": "muscle-building-for-beginners",
+     "cover": "dc9b8fbf-aea2-4dfb-9eac-3d4d46d8d438.png"
+    },
+    {
+     "_id": "66698076aeffa02da27e72b8",
+     "name": "Nutrition",
+     "slug": "nutrition",
+     "cover": "7e540594-a818-4932-a364-fbbe7fe43e53.png"
+    },
+    {
+     "_id": "66698076aeffa02da27e72be",
+     "name": "The Art of Painting Beyond Technique",
+     "slug": "the-art-of-painting-beyond-technique",
+     "cover": "fc12be9c-81a5-4c41-94b0-181d12b0964c.png"
+    }
+   ],
+   "sku": "PNM0620",
+   "slug": "new-skills-new-you-build-your-own-elearning-bundle-3rd-edition",
+   "tiers": [
+    {
+     "quantity": 2,
+     "price": {
+      "GBP": 180,
+      "EUR": 200,
+      "USD": 199,
+      "CAD": 275,
+      "AUD": 325,
+      "RUB": 19000,
+      "JPY": 34000
+     },
+     "_id": "694291f97b5b78ce3939852b"
+    },
+    {
+     "quantity": 5,
+     "price": {
+      "GBP": 360,
+      "EUR": 405,
+      "USD": 399,
+      "CAD": 550,
+      "AUD": 660,
+      "RUB": 37500,
+      "JPY": 68000
+     },
+     "_id": "694291f97b5b78ce3939852c"
+    },
+    {
+     "quantity": 10,
+     "price": {
+      "GBP": 535,
+      "EUR": 610,
+      "USD": 599,
+      "CAD": 825,
+      "AUD": 990,
+      "RUB": 56500,
+      "JPY": 102500
+     },
+     "_id": "694291f97b5b78ce3939852d"
+    },
+    {
+     "quantity": 15,
+     "price": {
+      "GBP": 715,
+      "EUR": 815,
+      "USD": 799,
+      "CAD": 1100,
+      "AUD": 1320,
+      "RUB": 75000,
+      "JPY": 136500
+     },
+     "_id": "694291f97b5b78ce3939852e"
+    }
+   ],
+   "type": "elearning-bundle",
+   "valid_from": "2026-01-02T10:00:00.000Z"
+  },
+  {
+   "_id": "6aa27af2b1a529a23a7a9d44",
+   "cover_image": "1779323e-b985-4907-b180-2d8e4cadfcf0.jpeg",
+   "name": "Prestige Collection - Build your Own Bundle (Fall 2026)",
+   "products": [
+    {
+     "_id": "683fef2f7ba744defa0be7e1",
+     "name": "Fallout 76: Gone Fission - Deluxe Edition",
+     "slug": "fallout-76-gone-fission-deluxe-edition",
+     "cover": "02c1387d-7075-4528-8a42-e2e7899980ca.jpeg"
+    },
+    {
+     "_id": "6a8319d438fd8c403b050a47",
+     "cover": "94fe41ce-dc3f-40b1-b53a-fb60d9877e74.jpeg",
+     "name": "Anomaly President",
+     "slug": "anomaly-president"
+    },
+    {
+     "_id": "6aa038b65ce211c45fbc3f67",
+     "cover": "905d87f6-cc01-4299-abd5-a4651ebe61e8.jpeg",
+     "name": "Until Then Deluxe Edition",
+     "slug": "until-then-deluxe-edition"
+    },
+    {
+     "_id": "6a68ccead0c83d9276452ff3",
+     "cover": "7242276e-005f-403c-b38e-674fb3ccad57.jpeg",
+     "name": "The House Always Wins",
+     "slug": "the-house-always-wins"
+    },
+    {
+     "_id": "6aa02136e946519bf61d533b",
+     "cover": "6c1e18c7-b6c4-48ba-acda-2830151003e2.jpeg",
+     "name": "INDIKA Deluxe Edition",
+     "slug": "indika-deluxe-edition"
+    },
+    {
+     "_id": "6a847ef20897d4fa35af1a56",
+     "cover": "9d0a07de-2be5-445d-8db1-058fbeebbc12.jpeg",
+     "name": "Crypt Custodian",
+     "slug": "crypt-custodian"
+    },
+    {
+     "_id": "6723b517d130309826720bc8",
+     "cover": "f1fe9e9b-060d-4aed-a308-6ea9e417cebd.jpeg",
+     "name": "Heroes of Science and Fiction",
+     "slug": "silence-of-the-siren"
+    },
+    {
+     "_id": "679793a00a6d56bbd9f10948",
+     "cover": "17bf7a36-7f24-4d25-a747-204acf71f2c8.jpeg",
+     "name": "Tails of Iron 2: Whiskers of Winter - Deluxe Edition",
+     "slug": "tails-of-iron-2-whiskers-of-winter-deluxe-edition"
+    },
+    {
+     "_id": "69e73d443a29d0d8c25a285c",
+     "cover": "36d1fd15-b962-4345-9b92-8adca66d8c97.jpeg",
+     "name": "Bye Sweet Carole",
+     "slug": "bye-sweet-carole"
+    },
+    {
+     "_id": "6a9aa8735cd3b2d94d600cbe",
+     "cover": "aa3539dc-23ac-406e-b2ff-dca43d8e3e29.jpeg",
+     "name": "Kathy Rain 2: Soothsayer",
+     "slug": "kathy-rain-2-soothsayer"
+    },
+    {
+     "_id": "6aa2916ab1a529a23a7e0245",
+     "cover": "c960e249-f87a-4b10-b4dd-920ee2a446f3.jpeg",
+     "name": "Chernobylite 2: Exclusion Zone",
+     "slug": "chernobylite-2-exclusion-zone"
+    },
+    {
+     "_id": "6542401ae367d8fd49715a48",
+     "name": "Deathloop - Deluxe Edition",
+     "cover": "22543824-e21b-4414-82ce-ba1a3ab4ac58.jpeg",
+     "slug": "deathloop-deluxe-edition"
+    },
+    {
+     "_id": "69fb36c263e58296f9ea2836",
+     "cover": "5e6ecc2e-ffe2-4747-8327-759bec2a777e.jpeg",
+     "name": "DEADLINE DELIVERY",
+     "slug": "deadline-delivery"
+    },
+    {
+     "_id": "6a99960ee49fdfd4efba4e65",
+     "cover": "2b67b75f-2af6-45e0-9729-d466ce6f6830.jpeg",
+     "name": "House Party - Business and Pleasure Bundle",
+     "slug": "house-party-business-and-pleasure-bundle"
+    },
+    {
+     "_id": "6a96f49a07431f2183eac032",
+     "cover": "8bdec6ff-edba-4cbd-b356-741543e7b8c6.jpeg",
+     "name": "War for the Overworld Ultimate Edition",
+     "slug": "war-for-the-overworld-ultimate-edition"
+    },
+    {
+     "_id": "6aa12797f8842cc98cbb5a32",
+     "cover": "22be6dbe-b11b-40bb-8be0-9302e68d1044.jpeg",
+     "name": "The Thaumaturge: Deluxe Edition",
+     "slug": "the-thaumaturge-deluxe-edition"
+    },
+    {
+     "_id": "6aa2727c6d212960a06920f7",
+     "cover": "1636e40c-d19e-4cdb-94a5-e20486b6db54.jpeg",
+     "name": "The Lord of the Rings: Return to Moria\u2122 + Beorn's Lodge Pack + Durin's Folk Expansion",
+     "slug": "the-lord-of-the-rings-return-to-moria-beorns-lodge-pack-durins-folk-expansion"
+    },
+    {
+     "_id": "6a99986ae49fdfd4efba50d1",
+     "cover": "37c4ee99-73c8-4d02-8027-3c26d848cda4.jpeg",
+     "name": "The RPG",
+     "slug": "the-rpg"
+    },
+    {
+     "_id": "6a999024ab13f05f50924e04",
+     "cover": "692def67-4d5b-4292-ac80-4bdeda68ed54.jpeg",
+     "name": "Platypus Reclayed",
+     "slug": "platypus-reclayed"
+    },
+    {
+     "_id": "6716672c9fa2d55e2c8c4a77",
+     "cover": "0e068b4b-1019-49c7-bf4f-0720e3b48640.jpeg",
+     "name": "Daymare: 1994 Sandcastle",
+     "slug": "daymare-1994-sandcastle"
+    },
+    {
+     "_id": "6a9991e1ab13f05f50925911",
+     "cover": "087daedc-12e4-4e06-a5bc-d7212a7b69cf.jpeg",
+     "name": "No Players Online",
+     "slug": "no-players-online"
+    },
+    {
+     "_id": "6aa27d39c8dae839efb10dcd",
+     "cover": "2988aee6-7842-4b17-9dfc-edc2c6ab5293.jpeg",
+     "name": "ANTONBLAST",
+     "slug": "antonblast"
+    },
+    {
+     "_id": "6aa119482b610633c2a9beff",
+     "cover": "ded4d7e2-f14e-41a5-8231-32ffe95d03d8.jpeg",
+     "name": "Monument Valley 3",
+     "slug": "monument-valley-3"
+    },
+    {
+     "_id": "69e75bdfb441085abf5ebde1",
+     "cover": "eb210566-387f-45c1-b747-12f667be0890.jpeg",
+     "name": "Hell Clock",
+     "slug": "hell-clock"
+    },
+    {
+     "_id": "67657764c84f6a850f74cf33",
+     "cover": "df512cb4-24fd-415b-ba50-6b4149e68615.jpeg",
+     "name": "Redout 2 - Ultimate Edition",
+     "slug": "redout-2-ultimate-edition"
+    },
+    {
+     "_id": "6615657de645c1cdeb4b977e",
+     "cover": "663b0fc4-7983-4ca4-b4cf-fb220c4d9760.jpeg",
+     "name": "Oddsparks: An Automation Adventure",
+     "slug": "oddsparks-an-automation-adventure"
+    },
+    {
+     "_id": "6966206dbf1ecf0ac90682c3",
+     "cover": "eb409d09-18e7-4f70-b5e1-a4bd0d311fc3.jpeg",
+     "name": "Cattle Country",
+     "slug": "cattle-country"
+    },
+    {
+     "_id": "665dc8e5c02de153eae241e3",
+     "cover": "d6de315f-4d50-4bc4-bb78-7ede30f855d3.jpeg",
+     "name": "AirportSim",
+     "slug": "airportsim"
+    }
+   ],
+   "sku": "PNM0725",
+   "slug": "prestige-collection-build-your-own-bundle",
+   "tiers": [
+    {
+     "quantity": 2,
+     "price": {
+      "GBP": 1499,
+      "EUR": 1499,
+      "USD": 1499,
+      "CAD": 2160,
+      "AUD": 2280,
+      "RUB": 152000,
+      "JPY": 253000
+     },
+     "_id": "6aa27af2b1a529a23a7a9d46"
+    },
+    {
+     "quantity": 3,
+     "price": {
+      "GBP": 2175,
+      "EUR": 2175,
+      "USD": 2175,
+      "CAD": 3149,
+      "AUD": 3315,
+      "RUB": 219900,
+      "JPY": 366600
+     },
+     "_id": "6aa27af2b1a529a23a7a9d47"
+    },
+    {
+     "quantity": 5,
+     "price": {
+      "GBP": 3499,
+      "EUR": 3499,
+      "USD": 3499,
+      "CAD": 5049,
+      "AUD": 5325,
+      "RUB": 354000,
+      "JPY": 590000
+     },
+     "_id": "6aa27af2b1a529a23a7a9d48"
+    }
+   ],
+   "type": "bundle",
+   "valid_from": "2026-09-11T13:00:00.000Z",
+   "valid_until": "2026-10-16T07:00:00.000Z"
+  },
+  {
+   "_id": "6aa166e5e112ab8351819a5d",
+   "cover_image": "5fb79591-bea3-409c-a6d5-548ba333a4b6.jpeg",
+   "name": "Build your own Special Editions Bundle (Fall 2026)",
+   "products": [
+    {
+     "_id": "6a99591d640273beb055a825",
+     "cover": "fa9dbd36-e3bd-4212-84c6-be23f010af2c.jpeg",
+     "name": "Rogue Duck Double Pack",
+     "slug": "rogue-duck-double-pack"
+    },
+    {
+     "_id": "5e57880ae5364e1c83dc9b44",
+     "cover": "28061fa5-8ae7-418f-a249-015a709b1c6d.jpeg",
+     "name": "Metro Exodus - Gold Edition",
+     "slug": "metro-exodus-gold-edition"
+    },
+    {
+     "_id": "6a903b2281336ee28ded1704",
+     "cover": "feb3b7f8-dfeb-4589-ae73-f797d39fde6b.jpeg",
+     "name": "Top Down Mayhem Bundle",
+     "slug": "top-down-mayhem-bundle"
+    },
+    {
+     "_id": "6a903c4b638ec380de397f52",
+     "cover": "59975f12-ccef-44ff-96bd-db43e47357bd.jpeg",
+     "name": "There May Be Zombies Bundle",
+     "slug": "there-may-be-zombies-bundle"
+    },
+    {
+     "_id": "6a903d8b81336ee28ded1839",
+     "cover": "b0fa82b1-50f2-4605-aa86-15f85c6f4e81.jpeg",
+     "name": "Cats Collection Bundle",
+     "slug": "cats-collection-bundle"
+    },
+    {
+     "_id": "6a90080481336ee28decf9d9",
+     "cover": "7236debb-946b-4762-b05b-11efb2c770c5.jpeg",
+     "name": "War! What Is It Good 4 Pack",
+     "slug": "war-what-is-it-good-4-pack"
+    },
+    {
+     "_id": "6aa1386cda459572cc16e295",
+     "cover": "79ffee7e-daa6-499f-9157-da87c443fd84.jpeg",
+     "name": "Balrum + Deepest Chamber: Resurrection Pack",
+     "slug": "balrum-deepest-chamber-resurrection-pack"
+    },
+    {
+     "_id": "6a982d0fdadedfe6866445db",
+     "cover": "fee8c681-906f-4fba-95f8-62350d2623b7.jpeg",
+     "name": "Alfred Hitchcock - Vertigo - DELUXE EDITION",
+     "slug": "alfred-hitchcock-vertigo-deluxe-edition"
+    },
+    {
+     "_id": "6a9823e631ed2478eb3ed0e3",
+     "cover": "21dca58d-fc0a-46b5-b879-0d7e9d826050.jpeg",
+     "name": "Melobot - A Last Song - Digital Deluxe Edition",
+     "slug": "melobot-a-last-song-digital-deluxe-edition"
+    },
+    {
+     "_id": "6a997eaf640273beb0563658",
+     "cover": "17f603a2-2ed4-4e91-badd-d401b3a9319c.jpeg",
+     "name": "DOSMan Triple Pack",
+     "slug": "dosman-triple-pack"
+    },
+    {
+     "_id": "6a9fec434048c071ced7a009",
+     "cover": "ce112fac-7055-413c-8dcf-e5e2a91c66c1.jpeg",
+     "name": "Eight-Minute Empire: Complete Edition",
+     "slug": "eight-minute-empire-complete-edition"
+    },
+    {
+     "_id": "697379bf353e1908f528cef2",
+     "cover": "0a034d11-0255-4b0a-92b0-9bd6fb3a848a.jpeg",
+     "name": "Tails of Iron - Complete Edition",
+     "slug": "tails-of-iron-complete-edition"
+    },
+    {
+     "_id": "6aa02fbb6f72948da0589304",
+     "cover": "54d7f0cd-f368-44c8-819c-0fb9aef3bd0b.jpeg",
+     "name": "Godlike Burger + Supporter Pack",
+     "slug": "godlike-burger-and-supporter-pack"
+    },
+    {
+     "_id": "6a997bf8531ee06600857c3c",
+     "cover": "c91f0aca-a8a4-4fc4-b98b-20360d32fbc8.jpeg",
+     "name": "Insurmountable + Supporter Pack",
+     "slug": "insurmountable-and-supporter-pack"
+    },
+    {
+     "_id": "6a901b2781336ee28ded05ba",
+     "cover": "ed0e74bf-5e71-4b64-8dd5-409302a6e1e0.jpeg",
+     "name": "Point and Click Premium Bundle",
+     "slug": "point-and-click-premium-bundle"
+    },
+    {
+     "_id": "6a9edd9d84b36ff34348c5de",
+     "cover": "dd91e5b7-9518-4dff-8b87-bf010052c6ab.jpeg",
+     "name": "Grab The Games Triple Pack No.1",
+     "slug": "grab-the-games-triple-pack-no1"
+    },
+    {
+     "_id": "6a9edf409217efde472b9c12",
+     "cover": "a97a319d-8fc9-4b8c-a046-c5dfd59b39b5.jpeg",
+     "name": "Grab The Games Triple Pack No.2",
+     "slug": "grab-the-games-triple-pack-no2"
+    },
+    {
+     "_id": "6aa141e7da459572cc16e8fb",
+     "cover": "73706e30-5297-4ad4-897a-2b19b7018694.jpeg",
+     "name": "WRC 9 FIA World Rally Championship - Deluxe Edition",
+     "slug": "wrc-9-fia-world-rally-championship-deluxe-edition"
+    },
+    {
+     "_id": "65f82b07caed770a09108bbd",
+     "cover": "72df46b4-fc21-43a5-8e30-e00ae3a60bac.jpeg",
+     "name": "Coromon Deluxe Edition",
+     "slug": "coromon-deluxe-edition"
+    },
+    {
+     "_id": "6a9009f8638ec380de396d57",
+     "cover": "773dc5bd-11f5-425c-a37c-9120570e6ce2.jpeg",
+     "name": "Alt F-4 Pack",
+     "slug": "alt-f-4-pack"
+    },
+    {
+     "_id": "6a900fa6638ec380de396e7d",
+     "cover": "56e69d95-9344-4201-8c72-fd847702165b.jpeg",
+     "name": "Burning Rubber Bundle",
+     "slug": "burning-rubber-bundle"
+    }
+   ],
+   "sku": "PNM0724",
+   "slug": "build-your-own-special-editions-bundle",
+   "tiers": [
+    {
+     "quantity": 2,
+     "price": {
+      "GBP": 699,
+      "EUR": 699,
+      "USD": 699,
+      "CAD": 965,
+      "AUD": 1065,
+      "RUB": 71000,
+      "JPY": 118000
+     },
+     "_id": "6aa166e5e112ab8351819a5f"
+    },
+    {
+     "quantity": 3,
+     "price": {
+      "GBP": 999,
+      "EUR": 999,
+      "USD": 999,
+      "CAD": 1375,
+      "AUD": 1525,
+      "RUB": 101000,
+      "JPY": 168000
+     },
+     "_id": "6aa166e5e112ab8351819a60"
+    },
+    {
+     "quantity": 5,
+     "price": {
+      "GBP": 1575,
+      "EUR": 1575,
+      "USD": 1575,
+      "CAD": 2169,
+      "AUD": 2399,
+      "RUB": 156000,
+      "JPY": 265500
+     },
+     "_id": "6aa166e5e112ab8351819a61"
+    }
+   ],
+   "type": "bundle",
+   "valid_from": "2026-09-10T13:00:00.000Z",
+   "valid_until": "2026-10-15T07:00:00.000Z"
+  }
+ ]
+}

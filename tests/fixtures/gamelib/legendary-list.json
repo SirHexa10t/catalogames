@@ -1,0 +1,24 @@
+[
+  {
+    "app_name": "Sandworm",
+    "app_title": "Control",
+    "app_version": "",
+    "asset_infos": {"Windows": {"app_name": "Sandworm", "build_version": "1.0"}},
+    "base_urls": [],
+    "metadata": {"id": "b7e0a2", "title": "Control"},
+    "sidecar": null,
+    "achievements": null,
+    "dlcs": [
+      {"app_name": "SandwormDLC1", "app_title": "Control - The Foundation"}
+    ]
+  },
+  {
+    "app_name": "Snapdragon",
+    "app_title": "Hades",
+    "app_version": "",
+    "asset_infos": {"Windows": {"app_name": "Snapdragon"}},
+    "base_urls": [],
+    "metadata": {"id": "c91f34", "title": "Hades"},
+    "dlcs": []
+  }
+]
