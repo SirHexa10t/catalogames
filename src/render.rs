@@ -20,12 +20,16 @@ use table_formatter::{FormatOptions, RowSpacing, format_table};
 use crate::clock::Timestamp;
 use crate::commands::gamelib;
 use crate::inventory::steam as steam_inventory;
+use crate::inventory::steam::Identity;
 use crate::inventory::steam::{Deck, Os, Rating, Reviews, SteamGame, Vr};
 use crate::steam;
+use crate::steam::items::{self, Answer, Classified};
 use crate::steam::store::GameDetails;
+use crate::store_inventory::steam::{delisted, snapshot, tags};
 use crate::user_games::crossover;
 use crate::user_games::holdings::{Claim, Holdings, Standings};
 use crate::{Bundle, Game, Listing, Price};
+use crate::{Ladder, Money, Tier};
 
 // ---------------------------------------------------------------------------------------------
 // What gets shown
@@ -237,7 +241,7 @@ impl Preview {
     /// its own store page and a detail line. One that is not carries none of them, because
     /// inventing them would be worse than leaving them out — but it still links to its own page
     /// if the store published an app-id, since a search would discard an identity already held.
-    pub fn of_game(game: &Game, held: &Holdings) -> Self {
+    pub fn of_game(game: &Game, held: &Holdings, classified: &Classified) -> Self {
         // Both asked once, here, so a game is marked whether or not the inventory knows anything
         // else about it.
         let standings = held.of(game);
@@ -250,24 +254,107 @@ impl Preview {
                 .map(|_| crossover::NOTE.to_owned())
                 .unwrap_or_default(),
         };
-        match steam_inventory::of_game(game) {
-            Some(entry) => Self {
+        // The one join, read back into whichever table holds the game. The curated table first,
+        // and not because it is older: its band is over the review population this program chose
+        // (`purchase_type=all`, key-activated copies counted), which no bulk surface publishes.
+        // Where both tables hold a game, the curated one is the right population, not merely the
+        // earlier reading.
+        let app_id = steam_inventory::app_id_of(game);
+        if let Some(entry) = app_id.and_then(steam_inventory::by_app_id) {
+            return Self {
                 elsewhere,
                 standings,
                 // The same answer the opener will write, rather than a second one derived from
                 // the entry: see `page_of`.
-                url: page_of(game),
+                url: page_of(game, classified),
                 ..Self::of_entry(game.title.clone(), entry)
-            },
-            None => Self {
-                name: game.title.clone(),
-                all_time: None,
-                recent: None,
+            };
+        }
+        // Then the snapshot: 188,000 games where the curated table has 415. This is what gives a
+        // band to a game the curated table never met — every game a pack delivers, and every
+        // Humble row, since Humble publishes no ids and its games resolve by title alone.
+        if let Some((found, details)) = app_id
+            .and_then(snapshot::by_id)
+            .and_then(|found| found.details.map(|details| (found, details)))
+        {
+            return Self {
                 elsewhere,
                 standings,
-                url: page_of(game),
-                detail: None,
-            },
+                url: page_of(game, classified),
+                ..Self::of_snapshot(game.title.clone(), found.app_id, &details)
+            };
+        }
+        Self {
+            name: game.title.clone(),
+            all_time: None,
+            recent: None,
+            elsewhere,
+            standings,
+            url: page_of(game, classified),
+            detail: None,
+        }
+    }
+
+    /// A snapshot entry, under the name a store gave it.
+    ///
+    /// What the snapshot lacks, said plainly rather than filled in: `recent`, because the
+    /// thirty-day window is in no bulk surface Valve publishes; and VR's DEGREE, because the
+    /// snapshot records only whether the store names a headset at all, so a VR-only game reads
+    /// here as "VR supported". The band is derived from approval and count exactly as
+    /// [`Self::of_entry`] derives it, over the snapshot's population (`purchase_type=steam`).
+    fn of_snapshot(name: String, app_id: u32, details: &snapshot::Details) -> Self {
+        Self {
+            name,
+            // Both figures or neither: a percentage over an unknown count says nothing.
+            all_time: details
+                .approval
+                .zip(details.reviews)
+                .map(|(approval, count)| Reviews {
+                    // The snapshot writes a percentage; anything past 100 would be a corrupt row,
+                    // and clamping is the honest reading of one rather than a wrapped byte.
+                    approval: u8::try_from(approval.min(100)).unwrap_or(100),
+                    count,
+                }),
+            recent: None,
+            elsewhere: String::new(),
+            standings: Standings::default(),
+            url: steam::app_url(app_id),
+            detail: Some(Detail {
+                // In the store page's own wording, so a snapshot row reads like the curated row
+                // above it. A date that will not parse is shown as it came rather than dressed up.
+                released: match details.released {
+                    Some(snapshot::Release::Out(iso) | snapshot::Release::Planned(iso)) => {
+                        steam::printed_date(iso).unwrap_or_else(|| iso.to_owned())
+                    }
+                    Some(snapshot::Release::Unannounced) => "coming soon".to_owned(),
+                    Some(snapshot::Release::Undated) | None => "?".to_owned(),
+                },
+                // Unknown draws as a store listing none, which is what the line drew before a
+                // cell could be unknown.
+                os: details.os.unwrap_or(Os {
+                    windows: false,
+                    mac: false,
+                    linux: false,
+                }),
+                vr: if details.vr == Some(true) {
+                    Vr::Supported
+                } else {
+                    Vr::None
+                },
+                deck: details
+                    .deck
+                    .and_then(|deck| u8::try_from(deck).ok())
+                    .and_then(Deck::from_category)
+                    .unwrap_or(Deck::Unknown),
+                // Strongest first, which is the order the snapshot keeps them in.
+                tags: details
+                    .tag_ids()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(tags::name)
+                    .map(str::to_owned)
+                    .collect(),
+            }),
         }
     }
 
@@ -421,13 +508,35 @@ fn named(claim: &Claim) -> String {
 /// to a search results page. The listing did not show it, because the listing built a `Preview`,
 /// which did ask the inventory: the form showed `…/app/1681600` and the script it wrote opened a
 /// search for the title. One answer now, in one place, with a test holding the two together.
+///
+/// An id the tables could not settle is what `classified` is for — what the item service said it
+/// is, once per run ([`crate::steam::items`]). Found, the page is Steam's own path for it: a
+/// bundle id a store published as an app id reaches `/bundle/…` instead of bouncing. Asked and
+/// claimed by nothing, it is a search: the page would bounce. Never asked — an offline run, a
+/// library caller, a request that failed — an unheld id is linked as published, which is what
+/// this did before the service was consulted, and is usually right.
 #[must_use]
-pub fn page_of(game: &Game) -> String {
-    if let Some(entry) = steam_inventory::of_game(game) {
-        return steam::app_url(entry.app_id);
+pub fn page_of(game: &Game, classified: &Classified) -> String {
+    let search = || steam::search_url(&game.title);
+    match steam_inventory::identity_of(game) {
+        Identity::App(id) => steam::app_url(id),
+        Identity::Unheld(id) => match classified.of(id) {
+            Answer::Found(claims) => items::meant(claims, &game.title).url(),
+            Answer::Nothing => search(),
+            // Never asked: the id as published — unless the ledger saw the store refuse it
+            // outright, where the page would bounce. A region-restricted app keeps its page: it is
+            // alive, and may well be for sale where the reader is.
+            Answer::Unasked => match delisted::get(id).map(|entry| entry.state) {
+                Some(delisted::State::Removed) => search(),
+                Some(delisted::State::RegionRestricted) | None => steam::app_url(id),
+            },
+        },
+        Identity::Disputed(id) => match classified.of(id) {
+            Answer::Found(claims) => items::meant(claims, &game.title).url(),
+            Answer::Nothing | Answer::Unasked => search(),
+        },
+        Identity::Unknown => search(),
     }
-    game.steam_app_id
-        .map_or_else(|| steam::search_url(&game.title), steam::app_url)
 }
 
 /// A verdict and the number of reviews behind it, coloured by band.
@@ -543,8 +652,66 @@ fn price_line(price: &Price) -> String {
         // An absolute price is the whole story, so nothing is added to it.
         Price::Whole(amount) => amount.to_string(),
         // The "+" says the rate holds from that many games upward, which is what a ladder's
-        // top tier offers.
-        Price::PerGame { each, games } => format!("{each}/game at {games}+"),
+        // top tier offers. Unchanged by the ladder underneath: the folded line stays the concise
+        // one, and the rungs are for the line a reader sees on opening the bundle.
+        Price::PerGame(ladder) => format!("{}/game at {}+", ladder.each(), ladder.top().games),
+    }
+}
+
+/// What each next batch of picks costs, up a pick-and-mix ladder:
+/// `3: $3.33, then 2: $2.50, then 2: $2.48, then any: $2.85`.
+///
+/// Fanatical prices a ladder as totals, and its page frames a bigger rung as a saving on the
+/// picks already made — "you're saving on what you already picked". Read the other way round,
+/// the difference between two rungs, over the picks it adds, is what the NEXT picks cost, which
+/// is the figure a buyer deciding whether to add two more games actually needs. The last figure
+/// is the top rung's rate over all of its picks: what every pick costs once the ladder is climbed.
+/// Checked against the Platinum Collection's own page — 3 for $9.99, 5 for $14.99, 7 for $19.95
+/// — which gives exactly the line above.
+///
+/// Every subtraction is sound by construction: a [`Ladder`] ascends strictly in both count and
+/// total, so no step adds zero picks or costs less than nothing.
+#[must_use]
+pub fn marginal_rates(ladder: &Ladder) -> String {
+    let mut said = Vec::with_capacity(ladder.tiers().len() + 1);
+    let mut below: Option<&Tier> = None;
+    for tier in ladder.tiers() {
+        let (picks, hundredths) = match below {
+            None => (tier.games, tier.total.hundredths),
+            Some(lower) => (
+                tier.games - lower.games,
+                tier.total.hundredths - lower.total.hundredths,
+            ),
+        };
+        let each = Money::new(hundredths, tier.total.currency.clone())
+            .each_of(picks)
+            .expect("a ladder's counts ascend strictly, so every step adds a pick");
+        said.push(format!("{picks}: {each}"));
+        below = Some(tier);
+    }
+    said.push(format!("any: {}", ladder.each()));
+    said.join(", then ")
+}
+
+/// The line a reader meets first on opening a bundle: its page, and what each next game costs.
+///
+/// Two facts the folded heading cannot hold. The page, because a person choosing wants to see
+/// the offer as the store presents it, and the heading is already full. And the ladder's
+/// marginal rates, which are the honest reading of a pick-and-mix — see [`marginal_rates`]. A
+/// bundle sold whole, or one the store published no usable price for, gets the page alone.
+///
+/// Drawn as a comment row in the form: unselectable, and folded away with the bundle.
+#[must_use]
+pub fn bundle_note(bundle: &Bundle) -> String {
+    match &bundle.price {
+        Some(Price::PerGame(ladder)) => {
+            format!(
+                "# {}  ;  #ofGames:Cost-Each : {}",
+                bundle.url,
+                marginal_rates(ladder)
+            )
+        }
+        _ => format!("# {}", bundle.url),
     }
 }
 
@@ -625,8 +792,13 @@ pub fn line(preview: &Preview, palette: Palette) -> String {
 ///
 /// Returns an empty string for an empty listing rather than a placeholder, so callers can
 /// decide what "nothing on sale" should look like.
-pub fn listing(listing: &Listing, palette: Palette, held: &Holdings) -> String {
-    listing_at(listing, palette, Timestamp::now(), held)
+pub fn listing(
+    listing: &Listing,
+    palette: Palette,
+    held: &Holdings,
+    classified: &Classified,
+) -> String {
+    listing_at(listing, palette, Timestamp::now(), held, classified)
 }
 
 /// [`listing`], with the moment to count down from supplied.
@@ -634,7 +806,13 @@ pub fn listing(listing: &Listing, palette: Palette, held: &Holdings) -> String {
 /// Public so that a test — or a caller rendering a listing captured earlier — can get the same
 /// output twice. [`listing`] reads the clock, which makes it correct and untestable; this one
 /// takes `now` as an argument, which makes it both.
-pub fn listing_at(listing: &Listing, palette: Palette, now: Timestamp, held: &Holdings) -> String {
+pub fn listing_at(
+    listing: &Listing,
+    palette: Palette,
+    now: Timestamp,
+    held: &Holdings,
+    classified: &Classified,
+) -> String {
     let mut out = String::new();
     for (position, bundle) in listing.bundles.iter().enumerate() {
         if position > 0 {
@@ -646,7 +824,7 @@ pub fn listing_at(listing: &Listing, palette: Palette, now: Timestamp, held: &Ho
         // in principle, but a single very long title — the bundled video courses run past
         // seventy characters — would then push every other bundle's links out behind a
         // corridor of spaces. A bundle pays for its own outliers and no one else's.
-        let rows = flatten(&bundle.games, held);
+        let rows = flatten(&bundle.games, held, classified);
 
         // Every row goes into the table, its bullet included as the first column, so that a
         // nested entry lines up with its siblings instead of being pushed sideways.
@@ -722,8 +900,13 @@ pub struct Offer {
 /// rows two fewer cells of padding to compensate. That stagger IS the nesting, and it is the
 /// reason the listing marks depth with a wider bullet instead: there, every row starts flush.
 #[must_use]
-pub fn choices(bundle: &Bundle, palette: Palette, held: &Holdings) -> Vec<Offer> {
-    let rows = flatten(&bundle.games, held);
+pub fn choices(
+    bundle: &Bundle,
+    palette: Palette,
+    held: &Holdings,
+    classified: &Classified,
+) -> Vec<Offer> {
+    let rows = flatten(&bundle.games, held, classified);
     let lines = align(
         &rows
             .iter()
@@ -805,12 +988,12 @@ impl Row {
 }
 
 /// Turns a bundle's games into the lines that will be printed, packs opened out.
-fn flatten(games: &[Game], held: &Holdings) -> Vec<Row> {
+fn flatten(games: &[Game], held: &Holdings, classified: &Classified) -> Vec<Row> {
     let mut rows = Vec::with_capacity(games.len());
     for game in games {
         if !game.is_pack() {
             rows.push(Row::Game {
-                preview: Preview::of_game(game, held),
+                preview: Preview::of_game(game, held, classified),
                 depth: 0,
             });
             continue;
@@ -821,7 +1004,7 @@ fn flatten(games: &[Game], held: &Holdings) -> Vec<Row> {
         });
         for inner in &game.contains {
             rows.push(Row::Game {
-                preview: Preview::of_game(inner, held),
+                preview: Preview::of_game(inner, held, classified),
                 depth: 1,
             });
         }

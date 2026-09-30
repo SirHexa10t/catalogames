@@ -8,6 +8,7 @@
 
 use crate::Listing;
 use crate::clock::Timestamp;
+use crate::steam::items::Classified;
 
 /// What the generated script is called when no other name is given.
 pub const FILE_NAME: &str = "catalogames-open.sh";
@@ -52,7 +53,7 @@ pub struct Link {
 /// decided. A pack contributes the pages of the games it delivers, because a pack has no page of
 /// its own.
 #[must_use]
-pub fn of_listing(listing: &Listing) -> Vec<Link> {
+pub fn of_listing(listing: &Listing, classified: &Classified) -> Vec<Link> {
     let mut links = Vec::new();
     for bundle in &listing.bundles {
         for game in &bundle.games {
@@ -64,7 +65,7 @@ pub fn of_listing(listing: &Listing) -> Vec<Link> {
             links.extend(held.iter().map(|game| Link {
                 bundle: bundle.title.clone(),
                 title: game.title.clone(),
-                url: crate::render::page_of(game),
+                url: crate::render::page_of(game, classified),
             }));
         }
     }
@@ -134,10 +135,12 @@ pub fn script(links: &[Link]) -> String {
 /// A value as one shell word, safe whatever is in it.
 ///
 /// Single quotes, with the one character they cannot contain spliced in the usual way. The URLs
-/// this writes are percent-encoded already — a search term by this crate, an app id by its type —
-/// so nothing quotable survives into them today. That is the reason to quote properly now: the
-/// safety is a property of how the URLs happen to be built, not a promise the stores made, and
-/// a vendor field reaching a shell word unquoted is how a product name becomes a command.
+/// this writes are percent-encoded already — a search term by this crate, an app id by its type,
+/// and a path Steam's item service hands back, re-encoded by [`crate::steam::items::Found::url`]
+/// because it is external text however tame Steam's slugs look — so nothing quotable survives
+/// into them today. That is the reason to quote properly now: the safety is a property of how
+/// the URLs happen to be built, not a promise the stores made, and a vendor field reaching a
+/// shell word unquoted is how a product name becomes a command.
 ///
 /// Titles go only into `#` comments, where every metacharacter is inert. That is deliberate and
 /// worth keeping: twelve of the product names in one capture carry shell metacharacters, one of
@@ -155,7 +158,13 @@ fn comment(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::steam::items::Classified;
     use crate::{Bundle, Game};
+
+    /// The links of a listing nothing was asked about, which is every test here.
+    fn links_of(listing: &Listing) -> Vec<Link> {
+        of_listing(listing, &Classified::none())
+    }
 
     fn game(title: &str, app_id: Option<u32>) -> Game {
         Game {
@@ -187,7 +196,7 @@ mod tests {
     fn a_link_is_produced_for_every_game_in_the_order_it_was_picked() {
         // Order is the whole point: the person picking should not have to wonder which bundle
         // an adjacent tab came from.
-        let links = of_listing(&listing(vec![
+        let links = links_of(&listing(vec![
             bundle("First", vec![game("Alpha", Some(1)), game("Beta", Some(2))]),
             bundle("Second", vec![game("Gamma", Some(3))]),
         ]));
@@ -205,7 +214,7 @@ mod tests {
     fn a_game_picked_in_two_bundles_opens_twice() {
         // Picked twice means opened twice. Collapsing them would decide something the person
         // choosing has already decided.
-        let links = of_listing(&listing(vec![
+        let links = links_of(&listing(vec![
             bundle("First", vec![game("Alpha", Some(1))]),
             bundle("Second", vec![game("Alpha", Some(1))]),
         ]));
@@ -218,7 +227,7 @@ mod tests {
         // A pack has no page of its own, so opening "the pack" means opening what it holds.
         let mut pack = game("A Pack", None);
         pack.contains = vec![game("Inner One", Some(7)), game("Inner Two", Some(8))];
-        let links = of_listing(&listing(vec![bundle("First", vec![pack])]));
+        let links = links_of(&listing(vec![bundle("First", vec![pack])]));
 
         let titles: Vec<&str> = links.iter().map(|link| link.title.as_str()).collect();
         assert_eq!(titles, ["Inner One", "Inner Two"]);
@@ -227,7 +236,7 @@ mod tests {
 
     #[test]
     fn a_game_with_no_app_id_still_gets_something_to_open() {
-        let links = of_listing(&listing(vec![bundle("First", vec![game("Unknown", None)])]));
+        let links = links_of(&listing(vec![bundle("First", vec![game("Unknown", None)])]));
         assert!(links[0].url.contains("/search/"), "{:?}", links[0].url);
     }
 
@@ -235,7 +244,7 @@ mod tests {
     fn every_link_goes_through_the_one_function_that_opens_them() {
         // The reason this is a script rather than a program that opens pages itself: one
         // function to change, and every link changes with it.
-        let links = of_listing(&listing(vec![bundle(
+        let links = links_of(&listing(vec![bundle(
             "First",
             vec![game("Alpha", Some(1)), game("Beta", Some(2))],
         )]));
@@ -252,7 +261,7 @@ mod tests {
 
     #[test]
     fn the_bundle_each_link_came_from_is_written_beside_it() {
-        let text = script(&of_listing(&listing(vec![
+        let text = script(&links_of(&listing(vec![
             bundle("First", vec![game("Alpha", Some(1))]),
             bundle("Second", vec![game("Beta", Some(2))]),
         ])));
@@ -281,7 +290,7 @@ mod tests {
     fn the_script_names_itself_so_a_rerun_knows_its_own_file() {
         // A generated file in a working directory is one careless run away from replacing
         // something a person wrote. Recognising its own output is what lets it refuse.
-        let text = script(&of_listing(&listing(vec![bundle(
+        let text = script(&links_of(&listing(vec![bundle(
             "First",
             vec![game("Alpha", Some(1))],
         )])));
@@ -293,19 +302,23 @@ mod tests {
         // It is the one thing a reader will want to change — a running browser takes a page in
         // milliseconds, a cold start can race its own launch — so it is the first thing they
         // meet, and the first page waits longer because it may be starting the browser.
-        let text = script(&of_listing(&listing(vec![bundle(
+        let text = script(&links_of(&listing(vec![bundle(
             "First",
             vec![game("Alpha", Some(1)), game("Beta", Some(2))],
         )])));
         let delay = text.find("\nDELAY=").expect("a delay variable");
         let function = text.find("open_link() {").expect("the function");
         assert!(delay < function, "the delay should come first: {text}");
+        // The page is whatever `page_of` resolves — through the Steam tables, so not `/app/1` —
+        // and is its contract to test; this test is about the waits.
+        let alpha = crate::render::page_of(&game("Alpha", Some(1)), &Classified::none());
+        let beta = crate::render::page_of(&game("Beta", Some(2)), &Classified::none());
         assert!(
-            text.contains(r#"open_link 'https://store.steampowered.com/app/1' "$FIRST_DELAY""#),
+            text.contains(&format!(r#"open_link '{alpha}' "$FIRST_DELAY""#)),
             "{text}"
         );
         assert!(
-            text.contains(r#"open_link 'https://store.steampowered.com/app/2' "$DELAY""#),
+            text.contains(&format!(r#"open_link '{beta}' "$DELAY""#)),
             "{text}"
         );
     }
@@ -314,7 +327,7 @@ mod tests {
     fn the_script_says_why_a_page_may_appear_twice() {
         // The person who opens the file and sees one URL twice is the one most likely to
         // "fix" it, so the reason lives where they will read it.
-        let text = script(&of_listing(&listing(vec![
+        let text = script(&links_of(&listing(vec![
             bundle("First", vec![game("Alpha", Some(1))]),
             bundle("Second", vec![game("Alpha", Some(1))]),
         ])));

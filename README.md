@@ -1281,7 +1281,7 @@ to reach for first.
 | `src/error.rs` | `Error`, separating transport failures from schema failures. |
 | `src/render.rs` | Plain-text rendering of a `Listing`, including bundle deadlines. |
 | `src/clock.rs` | UTC instants and the two stores' timestamp formats. No date crate. |
-| `src/steam/` | Talking to Steam: links, app-id parsing, and `store.rs` for fetching one app. |
+| `src/steam/` | Talking to Steam: links, app-id parsing, `store.rs` for fetching one app, `items.rs` for asking what an id is. |
 | `src/inventory/steam/` | Games as data, one module per category; `regular.rs` is generated. |
 | `src/inventory/steam/source.rs` | Writing an entry back out as Rust source. Used by both the generator and `add_project_entry`. |
 | `src/{epic,itch,gamejolt}_inventory/` | Placeholders for other stores. |

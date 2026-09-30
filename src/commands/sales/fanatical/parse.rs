@@ -111,10 +111,25 @@ fn price_of(tiers: &[Tier], pool: usize) -> Option<Price> {
     if usize::try_from(best.quantity).is_ok_and(|picks| picks >= pool) {
         return Some(Price::Whole(total));
     }
-    Some(Price::PerGame {
-        each: total.each_of(best.quantity)?,
-        games: best.quantity,
-    })
+    // Every rung, not only the best: the unfolded listing prints what the NEXT games cost at each
+    // step, which only the whole ladder can say. The totals are the catalogue's own `tiers[]
+    // .price` — what a buyer pays — and never a product record's `bundle_tiers[].price`, which is
+    // the retail worth of the contents and reads eight times too high on a pack like Batman:
+    // Arkham Collection ($59.99 of games for $7.49). A rung the quoted currency is missing from
+    // is left out rather than guessed; the best rung is checked above and cannot be.
+    let rungs = tiers
+        .iter()
+        .filter_map(|tier| {
+            let total = Money::from_hundredths(*tier.price.get(QUOTED_CURRENCY)?, QUOTED_CURRENCY)?;
+            // The MODEL's rung, not the schema's: this file reads Fanatical's `Tier` too, and the
+            // two are the wire shape and the crate's, which is the whole reason for the path.
+            Some(crate::model::Tier {
+                games: tier.quantity,
+                total,
+            })
+        })
+        .collect();
+    crate::model::Ladder::new(rungs).map(Price::PerGame)
 }
 
 fn entry(listed: Listed) -> Entry {
@@ -521,11 +536,23 @@ mod tests {
     fn a_pick_and_mix_reports_the_rate_at_the_tier_that_gives_the_most_games() {
         // Nineteen products, best tier five picks: a choice, so a rate.
         let price = priced("fanatical-favorites-build-your-own-bundle").expect("a price");
-        let Price::PerGame { each, games } = price else {
+        let Price::PerGame(ladder) = price else {
             panic!("expected a per-game rate, got {price:?}");
         };
-        assert_eq!(games, 5);
-        assert_eq!(each.currency, "USD");
+        assert_eq!(ladder.top().games, 5);
+        assert_eq!(ladder.each().currency, "USD");
+        // The rungs are the catalogue's tiers as listed — the pay price at each count, ascending.
+        assert!(
+            ladder.tiers().len() >= 2,
+            "a ladder, not a single price: {ladder:?}"
+        );
+        assert!(
+            ladder
+                .tiers()
+                .windows(2)
+                .all(|p| p[0].games < p[1].games && p[0].total.hundredths < p[1].total.hundredths),
+            "ascending by count and by total: {ladder:?}"
+        );
     }
 
     #[test]

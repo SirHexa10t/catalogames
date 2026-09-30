@@ -701,6 +701,12 @@ impl Client {
         })
     }
 
+    /// The pause this client keeps between requests, for a caller pacing a series of its own.
+    #[must_use]
+    pub const fn spacing(&self) -> Duration {
+        self.spacing
+    }
+
     /// Everything the inventory records about `app_id`, in four paced requests.
     pub fn fetch(&self, app_id: u32) -> Result<GameDetails> {
         let details = parse_app_details(&self.get(&app_details_url(app_id), false)?, app_id)?

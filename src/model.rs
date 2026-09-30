@@ -28,6 +28,12 @@ pub struct Game {
     /// by NAME once resolved "Ashen" to "Ashen Empires" — a different game, which every
     /// automatic check accepted. An id cannot go wrong that way.
     ///
+    /// It can go wrong another way, and this field records what the store SAID rather than what
+    /// is true: Fanatical puts Steam bundle ids here, and a bundle id is not an app id. So it is
+    /// verified at the point of use — [`crate::inventory::steam::app_id_of`] confirms it against
+    /// the tables' own name for it — and never reshaped here, because the store's word is data
+    /// and the verdict on it belongs to the reader.
+    ///
     /// `None` where the store publishes none: Humble publishes no Steam ids at all, and even a
     /// store that does leaves it empty for multi-game packs that are not one Steam product.
     pub steam_app_id: Option<u32>,
@@ -163,12 +169,102 @@ impl std::fmt::Display for Money {
 pub enum Price {
     /// One payment unlocks every game listed.
     Whole(Money),
-    /// The cheapest per-game rate on offer, and how many games must be taken to get it.
-    PerGame {
-        each: Money,
-        /// Games the cheapest tier requires.
-        games: u32,
-    },
+    /// A pick-and-mix ladder — see [`Ladder`] for the shape, and for the one vendor it fits.
+    PerGame(Ladder),
+}
+
+/// One rung of a pick-and-mix ladder: this many picks, for this total.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Tier {
+    /// How many games this rung lets the buyer take.
+    pub games: u32,
+    /// What all of them cost together — the amount PAID, never a retail worth.
+    pub total: Money,
+}
+
+/// The price points of a pick-and-mix bundle, over one shared pool of games.
+///
+/// **Fanatical-shaped by construction, and said so because the next reader will reach for it for
+/// Humble.** A Fanatical tier is a price point: `{quantity: 5, price: 14.99}` means any five games
+/// from the pool for that total, so a rung's rate per pick is a rate a buyer can actually pay. A
+/// Humble tier is a cumulative PARTITION — paying the top price buys all of its games together —
+/// and a ladder of partitions has no "next N games cost this much" reading at all. Humble prices
+/// are [`Price::Whole`]; nothing here describes them.
+///
+/// Three invariants, enforced at construction and on the way in from a saved capture, so that no
+/// consumer has to check them and no position can lie:
+///
+/// * **never empty** — a ladder with no rung says nothing, and `top` could not answer;
+/// * **ascending by count, with no count twice** — sorted here rather than trusted, because the
+///   one assumption this project has already been bitten by is a vendor's tier order: Humble's
+///   arrived DESCENDING, and "largest" had to be found by count rather than by position;
+/// * **ascending by total** — more picks for less money is not a ladder, and the marginal rate
+///   between two rungs would come out below nothing.
+///
+/// `each` and `top` are derived rather than stored, so the rate on the folded line and the rungs
+/// behind it can never disagree. `each` is a DISPLAY figure: 2,369 cents over 25 picks rounds to
+/// 95, and 95 × 25 is 2,375, so anything that needs the sum must read the rungs, which are the
+/// truth.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "Vec<Tier>", into = "Vec<Tier>")]
+pub struct Ladder {
+    tiers: Vec<Tier>,
+}
+
+impl Ladder {
+    /// The ladder these rungs form, sorted; `None` when they form none — see the invariants.
+    #[must_use]
+    pub fn new(mut tiers: Vec<Tier>) -> Option<Self> {
+        tiers.sort_by_key(|tier| tier.games);
+        let sound = !tiers.is_empty()
+            && tiers.iter().all(|tier| tier.games > 0)
+            && tiers.windows(2).all(|pair| {
+                pair[0].games < pair[1].games
+                    && pair[0].total.hundredths < pair[1].total.hundredths
+                    && pair[0].total.currency == pair[1].total.currency
+            });
+        sound.then_some(Self { tiers })
+    }
+
+    /// Every rung, fewest picks first.
+    #[must_use]
+    pub fn tiers(&self) -> &[Tier] {
+        &self.tiers
+    }
+
+    /// The rung with the most picks — the best rate on offer, and what the folded line shows.
+    #[must_use]
+    pub fn top(&self) -> &Tier {
+        // Non-empty by construction; the constructor is the only way in.
+        self.tiers.last().expect("a ladder has at least one rung")
+    }
+
+    /// The rate per pick at the top rung, rounded to the cent. A display figure: see the type.
+    #[must_use]
+    pub fn each(&self) -> Money {
+        let top = self.top();
+        top.total
+            .each_of(top.games)
+            .expect("a rung's count is positive by construction")
+    }
+}
+
+impl TryFrom<Vec<Tier>> for Ladder {
+    type Error = String;
+
+    /// The invariants, applied to a saved capture as well: a file written by another version of
+    /// this crate is refetched rather than trusted, and one edited by hand is refused the same way.
+    fn try_from(tiers: Vec<Tier>) -> Result<Self, Self::Error> {
+        Self::new(tiers).ok_or_else(|| {
+            "a price ladder must have at least one rung, ascending by count and by total".to_owned()
+        })
+    }
+}
+
+impl From<Ladder> for Vec<Tier> {
+    fn from(ladder: Ladder) -> Self {
+        ladder.tiers
+    }
 }
 
 impl Game {

@@ -18,6 +18,7 @@
 
 use catalogames::links::Link;
 use catalogames::render::{self, Palette};
+use catalogames::steam::items::Classified;
 use catalogames::user_games::holdings::Holdings;
 use catalogames::{Bundle, Error, Game, Listing, Result};
 
@@ -33,8 +34,9 @@ pub fn pick(
     palette: Palette,
     notes: &[String],
     held: &Holdings,
+    classified: &Classified,
 ) -> Result<Option<Picked>> {
-    let (mut form, offers) = build(&listings, palette, notes, held);
+    let (mut form, offers) = build(&listings, palette, notes, held, classified);
 
     match run(&mut form) {
         Ok(Outcome::Submitted) => {}
@@ -84,6 +86,7 @@ fn build(
     palette: Palette,
     notes: &[String],
     held: &Holdings,
+    classified: &Classified,
 ) -> (Form, Vec<Option<String>>) {
     // The offers are kept, not just the lines drawn from them: each already carries the page its
     // box opens, and handing that to `chosen` is what stops the opener deriving it a second time.
@@ -105,18 +108,21 @@ fn build(
     for (vendor, listing) in listings {
         let mut options = Vec::new();
         for bundle in &listing.bundles {
-            let offers = render::choices(bundle, palette, held);
-            for (position, offer) in offers.into_iter().enumerate() {
+            // The bundle's own line comes first, as a comment row: its page and, for a
+            // pick-and-mix, what each next game costs. Unselectable, and folded away with the
+            // bundle, so it is read on opening the section and takes no room while shut. It
+            // carries the heading too — that is the slot the fold opens and shuts, and giving
+            // it to the note keeps every game's row a plain box. No page is kept for it: it
+            // answers nothing, and `chosen` skips it exactly as the cursor does.
+            options.push(
+                Choice::comment(render::bundle_note(bundle))
+                    .heading(render::bundle_heading(bundle, palette)),
+            );
+            for offer in render::choices(bundle, palette, held, classified) {
                 offered_pages.push(offer.url);
                 let mut option = Choice::named(offer.line);
                 if offer.included {
                     option = option.sub();
-                }
-                // The heading belongs to the first option of each bundle; that is the slot the
-                // fold opens and shuts. It can never land on a sub-choice: the games a pack
-                // delivers follow it, so the first row of a bundle is always one of its own.
-                if position == 0 {
-                    option = option.heading(render::bundle_heading(bundle, palette));
                 }
                 options.push(option);
             }
@@ -173,6 +179,10 @@ fn chosen(listings: Vec<(Vendor, Listing)>, form: &Form, pages: &[Option<String>
         .map(|game| 1 + game.contains.len())
         .sum();
 
+    // Comment rows are skipped here as the cursor skips them: each occupies a slot in the group
+    // and answers nothing, so reading its `checked` would attach every answer after it to the
+    // game before. This is the fourth place in this crate where a positional read-back could
+    // slip, and the first row type that is index-divergent by definition.
     let answers: Vec<bool> = form
         .items
         .iter()
@@ -181,6 +191,7 @@ fn chosen(listings: Vec<(Vendor, Listing)>, form: &Form, pages: &[Option<String>
             _ => None,
         })
         .flatten()
+        .filter(|option| !option.comment)
         .map(|option| option.checked)
         .collect();
     // Answers are paired with games BY POSITION, never by the text on the box: the same game
@@ -388,7 +399,13 @@ mod tests {
         // `all_folded` walks the items that exist when it is called, so calling it before the
         // options are pushed folds nothing — silently, and the form then opens fully expanded
         // over hundreds of games. This pins the ordering rather than the wording.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert_eq!(form.collapsed.len(), 2, "one fold per bundle: {form:?}");
         assert!(form.collapsible);
     }
@@ -397,7 +414,13 @@ mod tests {
     fn each_store_is_introduced_by_a_comment_of_its_own() {
         // A comment is display-only in this crate — drawn dim, never focusable — so it says
         // whose bundles follow without becoming something to tick.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let comments: Vec<&str> = form
             .items
             .iter()
@@ -413,7 +436,13 @@ mod tests {
     fn a_blank_line_stands_above_each_stores_heading() {
         // The newline has to be INSIDE the comment: the crate draws a comment by walking
         // `lines()`, so an empty comment of its own yields no lines at all and draws nothing.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let heading = form
             .items
             .iter()
@@ -430,7 +459,13 @@ mod tests {
     fn a_stores_group_is_anonymous_so_its_comment_is_the_only_heading() {
         // The crate's own rule: an anonymous group draws no heading and sits flush inside the
         // comments around it. A label here would print a second heading under the first.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert!(form.items.iter().all(|item| match item {
             Item::Checkboxes { label, .. } => label.is_empty(),
             _ => true,
@@ -449,6 +484,7 @@ mod tests {
                 "what went wrong".to_owned(),
             ],
             &Holdings::none(),
+            &Classified::none(),
         );
         assert_eq!(
             form.items.iter().take(2).collect::<Vec<_>>(),
@@ -467,6 +503,7 @@ mod tests {
             Palette::Plain,
             &["saved earlier".to_owned()],
             &Holdings::none(),
+            &Classified::none(),
         );
         assert_eq!(
             form.items.first(),
@@ -483,8 +520,9 @@ mod tests {
             Palette::Plain,
             &["a note".to_owned()],
             &Holdings::none(),
+            &Classified::none(),
         );
-        tick(&mut form, &[2]);
+        tick(&mut form, &[4]);
 
         let picked = chosen(offered(), &form, &pages);
         let titles: Vec<&str> = only(&picked)
@@ -498,15 +536,30 @@ mod tests {
 
     #[test]
     fn each_bundle_heads_its_own_section() {
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let headings: Vec<Option<&str>> = options(&form)
             .iter()
             .map(|option| option.heading.as_deref())
             .collect();
         assert_eq!(
             headings,
-            [Some("First"), None, Some("Second"), None, None, None],
-            "a heading belongs to the first option of each bundle"
+            [
+                Some("First"),
+                None,
+                None,
+                Some("Second"),
+                None,
+                None,
+                None,
+                None
+            ],
+            "a heading belongs to the note row that opens each bundle"
         );
     }
 
@@ -515,15 +568,21 @@ mod tests {
         // A pack is sold as one thing, so it gets a box of its own — but each game it delivers
         // has a page, and picking pages is all this form does, so each gets a box too. The
         // crate ties them together; what this pins is that the nesting was declared at all.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let nested: Vec<bool> = options(&form).iter().map(|option| option.sub).collect();
         assert_eq!(
             nested,
-            [false, false, false, false, true, true],
+            [false, false, false, false, false, false, true, true],
             "only the two games inside the pack are nested"
         );
 
-        let pack = &options(&form)[3].name;
+        let pack = &options(&form)[5].name;
         assert!(pack.starts_with("A Pack"), "{pack}");
         assert!(
             !pack.contains("http"),
@@ -537,17 +596,116 @@ mod tests {
 
     #[test]
     fn a_box_is_offered_for_every_page_worth_opening_and_no_more() {
-        // Four things on sale, one of which delivers two games: six boxes.
-        let (form, _pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        assert_eq!(options(&form).len(), 6);
+        // Four things on sale, one of which delivers two games: six boxes — and a note row per
+        // bundle beside them, which is a row but not a box.
+        let (form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        let (notes, boxes): (Vec<&Choice>, Vec<&Choice>) =
+            options(&form).iter().partition(|option| option.comment);
+        assert_eq!(boxes.len(), 6);
+        assert_eq!(notes.len(), 2, "one note per bundle");
+        assert_eq!(pages.len(), 6, "a page is kept per box and none for a note");
+    }
+
+    #[test]
+    fn each_bundle_opens_on_a_note_row_that_names_its_page() {
+        // The first thing inside an opened bundle is where it is. Unselectable, and folded
+        // with the bundle, so it costs a shut section nothing.
+        let (form, _pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        let first = &options(&form)[0];
+        assert!(first.comment, "{first:?}");
+        assert_eq!(first.name, "# https://example.test/First");
+        assert_eq!(
+            first.heading.as_deref(),
+            Some("First"),
+            "and it carries the fold"
+        );
+    }
+
+    #[test]
+    fn a_pick_and_mix_note_says_what_each_next_game_costs() {
+        // The Platinum Collection's own page: 3 for $9.99, 5 for $14.99, 7 for $19.95 — read as
+        // what the NEXT picks cost, which the page never says in so many words.
+        let ladder = catalogames::Ladder::new(vec![
+            catalogames::Tier {
+                games: 3,
+                total: catalogames::Money::new(999, "USD"),
+            },
+            catalogames::Tier {
+                games: 5,
+                total: catalogames::Money::new(1499, "USD"),
+            },
+            catalogames::Tier {
+                games: 7,
+                total: catalogames::Money::new(1995, "USD"),
+            },
+        ])
+        .expect("a ladder");
+        let mut priced = bundle("Platinum", vec![game("Alpha", Some(1))]);
+        priced.price = Some(catalogames::Price::PerGame(ladder));
+        let listing = Listing {
+            bundles: vec![priced],
+            problems: Vec::new(),
+        };
+        let (form, _pages) = build(
+            &[(Vendor::Fanatical, listing)],
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        assert_eq!(
+            options(&form)[0].name,
+            "# https://example.test/Platinum  ;  #ofGames:Cost-Each : 3: $3.33, then 2: $2.50, then 2: $2.48, then any: $2.85"
+        );
+    }
+
+    #[test]
+    fn a_box_after_a_note_row_still_returns_its_own_game() {
+        // The precise shape of every positional bug this crate has had: a row that occupies a
+        // slot and is not an answer, with a real answer straight after it. Alpha sits behind
+        // the first bundle's note; ticking it must return Alpha, not shift onto Beta.
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[1]);
+        let picked = chosen(offered(), &form, &pages);
+        let titles: Vec<&str> = only(&picked)
+            .bundles
+            .iter()
+            .flat_map(|bundle| &bundle.games)
+            .map(|game| game.title.as_str())
+            .collect();
+        assert_eq!(titles, ["Alpha"]);
     }
 
     #[test]
     fn answers_are_paired_with_games_by_position_not_by_their_wording() {
         // Two bundles can offer the same game, so two boxes can read the same. Ticking the
         // second bundle's copy must return the second bundle's copy.
-        let (mut form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[1, 3, 4, 5]);
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[2, 5, 6, 7]);
 
         let picked = chosen(offered(), &form, &pages);
         let shape: Vec<(&str, Vec<&str>)> = only(&picked)
@@ -565,8 +723,14 @@ mod tests {
 
     #[test]
     fn a_bundle_nothing_was_taken_from_drops_out() {
-        let (mut form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[2]);
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[4]);
 
         let picked = chosen(offered(), &form, &pages);
         assert_eq!(
@@ -579,7 +743,13 @@ mod tests {
 
     #[test]
     fn ticking_nothing_gives_an_empty_listing_rather_than_the_whole_one() {
-        let (form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let picked = chosen(offered(), &form, &pages);
         assert!(picked.is_empty());
         assert!(picked.links.is_empty(), "nothing ticked opens nothing");
@@ -590,8 +760,14 @@ mod tests {
         // Ticking the pack's own box is what the form does to every box under it, so this is
         // the state it hands back — and the pages that come out are the pack's contents, in
         // the order the form showed them.
-        let (mut form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[3, 4, 5]);
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[5, 6, 7]);
 
         let picked = chosen(offered(), &form, &pages);
         // And the pack contributes the pages of what it delivers, not one for itself.
@@ -615,8 +791,14 @@ mod tests {
         // The boxes under a pack are the answer, and they can say something its own box cannot:
         // one of the two games is already owned, or already played, and its page is not wanted.
         // The pack is still the pack — one product — so it comes back, holding what was picked.
-        let (mut form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[4]);
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[6]);
 
         let picked = chosen(offered(), &form, &pages);
         let opened: Vec<&str> = picked
@@ -642,8 +824,14 @@ mod tests {
         // The count of boxes and the count of games differ now, which is exactly the kind of
         // gap a positional walk falls into: the three boxes this bundle contributes have to be
         // consumed whether or not any of them was ticked, or the next bundle reads them.
-        let (mut form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[0]);
+        let (mut form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[1]);
 
         let picked = chosen(offered(), &form, &pages);
         let shape: Vec<(&str, Vec<&str>)> = only(&picked)
@@ -682,8 +870,14 @@ mod tests {
             },
         )];
 
-        let (mut form, pages) = build(&listings, Palette::Plain, &[], &Holdings::none());
-        tick(&mut form, &[0]);
+        let (mut form, pages) = build(
+            &listings,
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        tick(&mut form, &[1]);
 
         let picked = chosen(listings, &form, &pages);
         let opened: Vec<&str> = picked.links.iter().map(|link| link.url.as_str()).collect();
@@ -702,7 +896,13 @@ mod tests {
         // A pack has no page. Its box carries none, so ticking it contributes only the pages of
         // the games under it — which is what `a_pack_that_was_picked_keeps_the_games_it_delivers`
         // checks from the other end.
-        let (_form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (_form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert_eq!(
             pages.iter().filter(|page| page.is_none()).count(),
             1,
@@ -722,7 +922,13 @@ mod tests {
             },
         });
         // Built from a listing of the same shape, since a form only needs the games.
-        let (form, pages) = build(&offered(), Palette::Plain, &[], &Holdings::none());
+        let (form, pages) = build(
+            &offered(),
+            Palette::Plain,
+            &[],
+            &Holdings::none(),
+            &Classified::none(),
+        );
 
         let picked = chosen(vec![(Vendor::Humblebundle, before)], &form, &pages);
         assert_eq!(only(&picked).problems.len(), 1);

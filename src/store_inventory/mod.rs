@@ -14,11 +14,20 @@
 //! comparable things and a shared schema would mean inventing the fields the quieter ones lack —
 //! the same reason [`crate::inventory`] keeps them apart.
 //!
-//! # Nothing here is built yet
+//! # What is built, and what is still a plan
 //!
-//! Both modules carry the plan and the measurements behind it and no implementation. The
-//! research is in `TODO.txt`; what is settled, what is measured and what is still someone's
-//! decision is recorded per store below, so that whoever builds it is not re-deriving any of it.
+//! [`steam`] is built end to end: its row format and codec, the `steam_catalogue` tool that
+//! writes the snapshot, a snapshot in `data/steam/` compiled into the binary, and a reader
+//! ([`steam::snapshot`]) that answers by app-id or by title. The program consults it through the
+//! one join in [`crate::inventory::steam`] — `app_id_of` and `of_game` — AFTER the curated table,
+//! whose hand-written aliases and chosen review population the snapshot cannot carry. What the
+//! snapshot does not hold: the thirty-day review window, and a by-name index (title lookups scan).
+//!
+//! [`epic`] is notes only.
+//!
+//! The research behind both is in `TODO.txt`; what is settled, what is measured and what is still
+//! someone's decision is recorded per store, so that whoever finishes it is not re-deriving any
+//! of it.
 
 pub mod epic;
 pub mod steam;

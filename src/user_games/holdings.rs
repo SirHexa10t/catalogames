@@ -369,8 +369,7 @@ impl Holdings {
 /// Epic and nowhere else. The inventory is the join that supplies the missing number, and it is
 /// the same join the row's reviews, tags and store link already came through.
 fn identified(game: &Game) -> Option<u32> {
-    game.steam_app_id
-        .or_else(|| steam_inventory::of_game(game).map(|entry| entry.app_id))
+    steam_inventory::app_id_of(game)
 }
 
 /// The names a game on sale might be recorded under, best first.

@@ -8,6 +8,7 @@
 use std::path::{Path, PathBuf};
 
 use catalogames::render::{self, Palette};
+use catalogames::steam::items::Classified;
 use catalogames::user_games::holdings::Holdings;
 use catalogames::{Bundle, Game, Listing};
 
@@ -111,6 +112,7 @@ fn shown(games: Vec<Game>, held: &Holdings) -> String {
         },
         Palette::Plain,
         held,
+        &Classified::none(),
     )
 }
 
@@ -134,7 +136,7 @@ mod what_the_files_say {
         scratch.steam("wishlist", &[2_369_390]);
         let held = Holdings::load(scratch.path());
 
-        let shown = shown(vec![game("Something Wanted", Some(2_369_390))], &held);
+        let shown = shown(vec![game("Far Cry 6", Some(2_369_390))], &held);
         assert!(shown.contains("[wishlisted on Steam]"), "{shown}");
         assert!(!shown.contains("owned"), "{shown}");
     }
@@ -405,6 +407,7 @@ mod how_a_marked_line_looks {
             },
             Palette::Ansi,
             held,
+            &Classified::none(),
         )
     }
 
@@ -541,7 +544,7 @@ mod where_the_tags_sit {
         let held = Holdings::load(scratch.path());
 
         let shown = shown(
-            vec![game("Portal 2", Some(620)), game("Unowned", Some(400))],
+            vec![game("Portal 2", Some(620)), game("Portal", Some(400))],
             &held,
         );
         let links: Vec<&str> = shown

@@ -136,6 +136,13 @@ impl fmt::Display for Timestamp {
     }
 }
 
+/// A store DEADLINE older than this is a unit error rather than a deadline.
+const YEAR_2000: i64 = 946_684_800;
+
+/// The guard both readers share. Past it the value is milliseconds, not seconds: the same instant
+/// a thousand times larger lands in the year 58,000.
+const YEAR_2100: i64 = 4_102_444_800;
+
 /// Seconds since the epoch, as some services publish a deadline.
 ///
 /// Range-checked rather than wrapped blindly, because the mistake this guards is not a malformed
@@ -149,9 +156,24 @@ impl fmt::Display for Timestamp {
 /// by the reader for its own representation.
 #[must_use]
 pub fn from_epoch_seconds(seconds: i64) -> Option<Timestamp> {
-    const YEAR_2000: i64 = 946_684_800;
-    const YEAR_2100: i64 = 4_102_444_800;
     (YEAR_2000..YEAR_2100)
+        .contains(&seconds)
+        .then_some(Timestamp(seconds))
+}
+
+/// The same millisecond guard as [`from_epoch_seconds`], without its floor, for an instant that
+/// is allowed to predate Steam itself.
+///
+/// **The two callers disagree about what "too old to be real" means, and sharing one window was a
+/// silent bug.** A store deadline in 1998 is a unit error; a RELEASE date in 1998 is Half-Life.
+/// The catalogue sweep read release dates through [`from_epoch_seconds`] and so rendered `?` for
+/// apps 20, 50 and 70 — Valve's own pre-2000 catalogue — although the store had sent a perfectly
+/// good timestamp, and the row claimed the date was merely absent.
+///
+/// Zero is still refused: Valve sends `0` for "no date published", not for 1970-01-01.
+#[must_use]
+pub fn from_historic_epoch_seconds(seconds: i64) -> Option<Timestamp> {
+    (1..YEAR_2100)
         .contains(&seconds)
         .then_some(Timestamp(seconds))
 }
@@ -309,6 +331,47 @@ mod tests {
         assert_eq!(from_epoch_seconds(1_790_751), None);
         assert_eq!(from_epoch_seconds(0), None);
         assert_eq!(from_epoch_seconds(-1), None);
+    }
+
+    /// The three real timestamps the shared window used to drop. Written out as Valve sends them,
+    /// so the test states the contract in the store's own numbers rather than in a round date.
+    #[test]
+    fn a_release_date_predating_steam_is_read_rather_than_discarded() {
+        for (app, seconds, expected) in [
+            (70, 911_499_840, "1998-11-19"),
+            (20, 922_953_600, "1999-04-01"),
+            (50, 941_443_200, "1999-11-01"),
+        ] {
+            let read = from_historic_epoch_seconds(seconds)
+                .unwrap_or_else(|| panic!("app {app}: {seconds} should be a readable date"));
+            assert_eq!(read.date(), expected, "app {app}");
+            assert_eq!(
+                from_epoch_seconds(seconds),
+                None,
+                "app {app}: the deadline reader is meant to keep refusing this"
+            );
+        }
+    }
+
+    /// The looser floor must not loosen the guard the floor was standing in for.
+    #[test]
+    fn the_historic_reader_still_refuses_milliseconds_and_absent_dates() {
+        assert_eq!(
+            from_historic_epoch_seconds(1_790_751_600_000),
+            None,
+            "milliseconds"
+        );
+        assert_eq!(
+            from_historic_epoch_seconds(0),
+            None,
+            "Valve's \"no date published\""
+        );
+        assert_eq!(from_historic_epoch_seconds(-1), None);
+        assert_eq!(
+            from_historic_epoch_seconds(4_102_444_800),
+            None,
+            "the year 2100 itself"
+        );
     }
 
     #[test]

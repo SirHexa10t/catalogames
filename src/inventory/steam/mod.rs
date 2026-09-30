@@ -587,26 +587,228 @@ pub fn comparable(title: &str) -> String {
         .collect()
 }
 
-/// The inventory entry a store's game refers to.
+/// A title with the edition wording a reseller adds and Steam's own title does not carry.
 ///
-/// The app-id is tried first and the title only as a fallback, because they are not equally
-/// trustworthy: an id is an identity, while a title is a guess that once resolved "Ashen" to
-/// "Ashen Empires" — a different game that every automatic check accepted.
+/// `None` when there was nothing to strip, so a caller can tell "try this instead" from "this is
+/// already the plainest form" and skip a second lookup that would ask the same question twice.
 ///
-/// **An id the store published is authoritative, and there is deliberately no fallback from it.**
-/// Falling through to the title when the inventory happens not to hold that id would reintroduce
-/// exactly the error the id exists to prevent: a near-miss title silently attaching the wrong
-/// entry.
+/// **A fallback, never the first thing tried.** Shortening a title makes collisions likelier, and
+/// this crate has been bitten by exactly that: [`of_game`] records "Ashen" resolving to "Ashen
+/// Empires", a different game every automatic check accepted. So the strict form gets first
+/// refusal and this is consulted only where that found nothing — which is also why it is a
+/// separate function rather than a widening of [`comparable`], whose behaviour the curated
+/// table's own matcher depends on.
 ///
-/// One place, because this is the join every part of the program makes — what a store is selling,
-/// against what Steam knows about it. A second traversal would eventually resolve the same game
-/// to a different entry than the reviews and the store link on its own line already used.
+/// The wordings come from a real Fanatical capture rather than from imagination, and the gain is
+/// measured over it. Of its 130 bundle titles the snapshot resolved 31 on the strict form alone;
+/// with this fallback it resolves **45** — "Deathloop - Deluxe Edition" to `DEATHLOOP`, "Metro
+/// Exodus - Gold Edition" to `Metro Exodus`, "Everspace Ultimate Edition" to `EVERSPACE™`.
+///
+/// That is exactly what the 415-entry curated table reaches with its hand-written aliases, from a
+/// table nobody hand-wrote — and the two together reach 49. Most of the remaining 81 are not games
+/// at all: the same capture sells "Adobe Photoshop Complete Manual", "Baking Course" and
+/// multi-game packs, none of which Steam has ever carried.
+#[must_use]
+pub fn without_edition(title: &str) -> Option<String> {
+    // Longest first: "game of the year edition" has to win over "edition" inside it.
+    const WORDINGS: &[&str] = &[
+        "game of the year edition",
+        "collectors edition",
+        "anniversary edition",
+        "definitive edition",
+        "complete edition",
+        "enhanced edition",
+        "standard edition",
+        "ultimate edition",
+        "deluxe edition",
+        "premium edition",
+        "special edition",
+        "gold edition",
+        "goty edition",
+        "complete pack",
+        "remastered",
+        "complete",
+        "deluxe",
+    ];
+    let folded = title.trim().to_lowercase();
+    for wording in WORDINGS {
+        // The separators a store actually prints between a title and its edition.
+        for joiner in [" - ", " \u{2013} ", ": ", " "] {
+            let Some(shorter) = folded.strip_suffix(&format!("{joiner}{wording}")) else {
+                continue;
+            };
+            let shorter = shorter.trim();
+            // "Complete" alone is a title, not an edition of something.
+            if shorter.is_empty() {
+                continue;
+            }
+            return Some(shorter.to_string());
+        }
+    }
+    None
+}
+
+/// What the join makes of a store's game: which Steam id it is, and how far that is trusted.
+///
+/// **This is the join the `[owned on Steam?]` marker turns on**, and until now it could only see
+/// 415 games. Humble publishes no Steam ids at all, so every Humble row reached this with nothing
+/// but a title; a game sitting in the user's Steam library was reported as owned on Epic and
+/// nowhere else whenever the curated table happened not to carry it. The snapshot carries 188,701.
+///
+/// Three sources, in falling order of trust, and the order is the whole point:
+///
+/// 1. **The id the store published, once a table's own name for it agrees with the title.** An
+///    id is an identity where a title is a guess, so it comes first — but Fanatical puts Steam
+///    BUNDLE ids in the same field: its "Monster Hunter World: Iceborne Digital Deluxe" carries
+///    `steam_id: 13009`, which is `store.steampowered.com/bundle/13009`, and `/app/13009` bounces
+///    to the store front. App and bundle ids are separate namespaces of small integers, so a
+///    bundle id can also BE a real app's id: measured over the snapshot, about 2% of the range
+///    13009 sits in is a live app. Checking only that a table HOLDS the id would turn that bounce
+///    — wrong, and obvious — into a confident link to an unrelated game — wrong, and invisible.
+///    So the check is [`same_title`]: the table names the app, and that name must be the title
+///    the store printed, edition wording aside. **Contradicted and unknown are different facts.**
+///    An id a table names as something else is set aside for good. An id NO table holds cannot be
+///    checked either way — a game newer than the snapshot looks exactly like a bundle id from
+///    here — so it is kept as the last resort, after the title has had its chance: measured on a
+///    real bundle, 17 of 17 published ids were confirmed, so this branch is for the day-old game.
+/// 2. **The curated table**, whose hand-written aliases carry the year-disambiguated and edition
+///    wordings another store prints bare. No snapshot can hold those; they are judgement.
+/// 3. **The snapshot**, strict title first and [`without_edition`] only where that found nothing.
+///
+/// A title matching several games resolves to none of them at any step. Measured over a real
+/// Fanatical capture of 130 bundle titles, the curated table alone reaches 45 and this reaches 49.
+///
+/// The three arms carrying an id are not interchangeable. [`Identity::App`] is settled: a table
+/// names it, or the title resolved to it. The other two are the residue the item service is asked
+/// about, once per run — see [`crate::steam::items`] — because from here a game newer than the
+/// snapshot and a bundle id look the same, and telling them apart needs Steam itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Identity {
+    /// A Steam app: the published id once a table's name agrees with the title, or the app the
+    /// title resolved to.
+    App(u32),
+    /// The published id, unchecked: no table holds it — or holds it without a name to check it
+    /// against — and the title resolved nothing. Kept as
+    /// the last resort because it is usually right — a bundle id lands here too, and links to a
+    /// page that bounces until the item service has said what it is.
+    Unheld(u32),
+    /// The published id, set aside: a table names it as something else, and the title resolved
+    /// nothing. Not the app the store meant — but bundle and package ids are separate namespaces
+    /// of the same small integers, so it may well be one of those.
+    Disputed(u32),
+    /// Nothing: no id published, and the title resolved nothing.
+    Unknown,
+}
+
+#[must_use]
+pub fn identity_of(game: &crate::Game) -> Identity {
+    let published = game.steam_app_id;
+    let standing = published.map(|id| standing(id, &game.title));
+    if let (Some(id), Some(Standing::Confirmed)) = (published, standing) {
+        return settled(id);
+    }
+    if let Some(entry) = by_name(&game.title) {
+        return settled(entry.app_id);
+    }
+    if let Ok(found) = crate::store_inventory::steam::snapshot::by_name(&game.title) {
+        return settled(found.app_id);
+    }
+    // Nothing named the title: the published id is all there is, and what the tables made of
+    // it is the only thing left to say.
+    match (published, standing) {
+        (Some(id), Some(Standing::Unknown)) => Identity::Unheld(id),
+        (Some(id), Some(Standing::Contradicted)) => Identity::Disputed(id),
+        _ => Identity::Unknown,
+    }
+}
+
+/// An app the tables resolved — unless the store refused to describe it when the sweep asked.
+///
+/// **A delisted app is never settled from here.** The ledger records a refusal on the day of the
+/// sweep, and both of its kinds can be wrong by the time a listing is drawn: delistings are
+/// reversed, and a region-restricted app is alive for anyone outside the sweep's countries. So it
+/// is left [`Identity::Unheld`], which the item service is asked about at run time, from wherever
+/// the reader is.
+fn settled(app_id: u32) -> Identity {
+    match crate::store_inventory::steam::delisted::get(app_id) {
+        Some(_) => Identity::Unheld(app_id),
+        None => Identity::App(app_id),
+    }
+}
+
+/// The Steam app-id a store's game refers to, from whichever table knows it: [`identity_of`]
+/// reduced to the number, for a caller that wants a library lookup and not the verdict.
+///
+/// An unheld id is included — it is usually right, and a lookup by it costs nothing when it is
+/// wrong. A disputed one is not: the one thing known about it is that it is not this game's app.
+#[must_use]
+pub fn app_id_of(game: &crate::Game) -> Option<u32> {
+    match identity_of(game) {
+        Identity::App(id) | Identity::Unheld(id) => Some(id),
+        Identity::Disputed(_) | Identity::Unknown => None,
+    }
+}
+
+/// What the tables say about a published id, against the title the store printed beside it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Standing {
+    /// A table names the app, and that name is the title: an identity.
+    Confirmed,
+    /// A table names the app as something else: a collision, or a store's mistake.
+    Contradicted,
+    /// No table holds the id, so nothing can be said either way.
+    Unknown,
+}
+
+/// The standing of `app_id` against `title` — see [`same_title`] for what agreeing means.
+fn standing(app_id: u32, title: &str) -> Standing {
+    let curated = by_app_id(app_id).map(|entry| names(entry).any(|name| same_title(name, title)));
+    let snapshot = crate::store_inventory::steam::snapshot::by_id(app_id)
+        // A row the store published no title for (`?` in the file, 17 of them) holds the id and
+        // cannot check it: neither agreement nor contradiction, so no evidence at all.
+        .filter(|found| !found.name.is_empty())
+        .map(|found| same_title(found.name, title));
+    match (curated, snapshot) {
+        (Some(true), _) | (_, Some(true)) => Standing::Confirmed,
+        (None, None) => Standing::Unknown,
+        _ => Standing::Contradicted,
+    }
+}
+
+/// Whether two titles name the same game, as far as wording can tell.
+///
+/// Equal under [`comparable`], or equal once [`without_edition`] has stripped either side: a store
+/// prints "MONSTER HUNTER RISE Deluxe Edition" for the app Steam calls "MONSTER HUNTER RISE", and
+/// occasionally the other way round. Both directions are tried because the wording can sit on
+/// either side; an empty title agrees with nothing, since a `?` marker folds to nothing too.
+#[must_use]
+pub fn same_title(a: &str, b: &str) -> bool {
+    let forms = |title: &str| {
+        let strict = comparable(title);
+        let loose = without_edition(title).map(|plain| comparable(&plain));
+        [(!strict.is_empty()).then_some(strict), loose]
+    };
+    let (of_a, of_b) = (forms(a), forms(b));
+    of_a.iter()
+        .flatten()
+        .any(|x| of_b.iter().flatten().any(|y| x == y))
+}
+
+/// The curated entry a store's game refers to, if the curated table has one.
+///
+/// The same join as [`app_id_of`], read back into the table: what resolves there resolves here
+/// to the same entry, so the reviews, the tags and the store link on one line can never come from
+/// different games. A second traversal with its own precedence is how that used to be possible.
+///
+/// **There is deliberately no fallback from an id a table confirms.** The title is a guess that
+/// once resolved "Ashen" to "Ashen Empires" — a different game that every automatic check
+/// accepted — and falling through to it when the curated table merely lacks the app would let
+/// that back in. An id the tables do NOT confirm is another matter: a bundle id, an app newer
+/// than the snapshot, or an id that disagrees with its own title — and the title is then the only
+/// thing anyone has.
 #[must_use]
 pub fn of_game(game: &crate::Game) -> Option<&'static SteamGame> {
-    match game.steam_app_id {
-        Some(app_id) => by_app_id(app_id),
-        None => by_name(&game.title),
-    }
+    app_id_of(game).and_then(by_app_id)
 }
 
 /// Every name this entry goes by: its own first, then its aliases.
@@ -647,6 +849,244 @@ pub fn tagged(tag: Tag) -> impl Iterator<Item = &'static SteamGame> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A store's game with only a title, as Humble publishes them.
+    fn titled(title: &str) -> crate::Game {
+        crate::Game {
+            title: title.to_string(),
+            machine_name: String::new(),
+            steam_app_id: None,
+            contains: Vec::new(),
+        }
+    }
+
+    /// The three sources, in the order that makes a CONFIRMED published id authoritative.
+    ///
+    /// Measured on a real Fanatical bundle before this contract was written: 17 of 17 published
+    /// ids were confirmed by name, none set aside — so the check costs nothing on honest data and
+    /// only bites where the store's id and title disagree, which is the case it exists for.
+    #[test]
+    fn an_app_id_the_store_published_is_never_second_guessed() {
+        let mut game = titled("Portal 2");
+        game.steam_app_id = Some(620);
+        assert_eq!(
+            app_id_of(&game),
+            Some(620),
+            "an id whose name agrees with the title stands"
+        );
+
+        // An id no table's name agrees with is not taken on the store's word alone: 620 IS Portal
+        // 2, and a store row calling it something no game is called has got one of the two wrong.
+        // With nothing else to resolve the title, the honest answer is no answer.
+        let mut baseless = titled("a title matching nothing whatsoever");
+        baseless.steam_app_id = Some(620);
+        assert_eq!(
+            app_id_of(&baseless),
+            None,
+            "a contradicted id is set aside for good"
+        );
+
+        // An id NO table holds is a different fact — a game newer than the snapshot looks like
+        // this — and is kept as the last resort once the title has had its chance.
+        let mut unswept = titled("a game released this morning");
+        unswept.steam_app_id = Some(4_294_967_000);
+        assert!(
+            by_app_id(4_294_967_000).is_none(),
+            "the test needs an id outside both tables"
+        );
+        assert_eq!(
+            app_id_of(&unswept),
+            Some(4_294_967_000),
+            "unknown is not contradicted"
+        );
+
+        // An id whose own name disagrees with the title is a collision, not an identity: the
+        // tables say 440 is Team Fortress 2, and a row titled "Portal 2" is not it. Trusting the
+        // id here is exactly how a bundle id that happens to be a real app id would link to the
+        // wrong game, so the id is set aside and the title decides.
+        let mut disagreeing = titled("Portal 2");
+        disagreeing.steam_app_id = Some(440);
+        assert_eq!(
+            app_id_of(&disagreeing),
+            Some(620),
+            "the id and the title disagree; the title decides"
+        );
+
+        // Edition wording on the store's side does not count as disagreement.
+        let mut edition = titled("Portal 2 - Deluxe Edition");
+        edition.steam_app_id = Some(620);
+        assert_eq!(
+            app_id_of(&edition),
+            Some(620),
+            "an edition of the game the id names"
+        );
+    }
+
+    /// Two wordings for one game agree; a different game, or nothing at all, does not.
+    #[test]
+    fn titles_agree_across_edition_wording_and_punctuation_only() {
+        assert!(same_title("EVERSPACE™", "Everspace"));
+        assert!(same_title("Portal 2", "Portal 2 - Deluxe Edition"));
+        assert!(
+            same_title("MONSTER HUNTER RISE Deluxe Edition", "MONSTER HUNTER RISE"),
+            "either side"
+        );
+        assert!(
+            !same_title("Portal 2", "Portal"),
+            "a prefix is a different game"
+        );
+        assert!(!same_title("Team Fortress 2", "Portal 2"));
+        assert!(!same_title("", ""), "nothing agrees with nothing");
+        assert!(
+            !same_title("?", "?"),
+            "and the unknown marker folds to nothing"
+        );
+    }
+
+    /// A store's BUNDLE id, which no table holds: unknown, not contradicted.
+    ///
+    /// Fanatical's Iceborne Digital Deluxe carries Steam bundle 13009 in `steam_id`. Nothing
+    /// local can tell a bundle id from an app the snapshot has not swept yet, so once the title
+    /// has resolved nothing the id is kept as the last resort — and links to `/app/13009`, which
+    /// bounces to the store front. Loud, and left loud on purpose: a batched request to Steam is
+    /// what tells the two apart, and until then a bounce is better than a silent wrong page.
+    #[test]
+    fn an_id_no_table_knows_as_an_app_is_not_taken_on_the_stores_word() {
+        let mut bundle = titled("Monster Hunter World: Iceborne Digital Deluxe");
+        bundle.steam_app_id = Some(13_009);
+        assert!(
+            by_app_id(13_009).is_none(),
+            "the test needs 13009 outside both tables"
+        );
+        assert_eq!(
+            app_id_of(&bundle),
+            Some(13_009),
+            "unknown to both tables and the title resolves nothing: the store's id, loudly"
+        );
+
+        // And an unknown id does not outrank a title that DOES resolve: the title is checked
+        // first, and only its silence hands the decision back to the id.
+        let mut renamed = titled("Portal 2");
+        renamed.steam_app_id = Some(13_009);
+        assert_eq!(
+            app_id_of(&renamed),
+            Some(620),
+            "the title resolves once the id is set aside"
+        );
+    }
+
+    /// The verdict behind the number, for the one caller that needs more than the number: the
+    /// page for an unheld or a disputed id is decided by the item service, not by the tables.
+    #[test]
+    fn the_verdict_behind_an_id_is_kept_for_the_item_service() {
+        let mut agreed = titled("Portal 2");
+        agreed.steam_app_id = Some(620);
+        assert_eq!(identity_of(&agreed), Identity::App(620));
+
+        let mut resolved = titled("Portal 2");
+        resolved.steam_app_id = Some(13_009);
+        assert_eq!(
+            identity_of(&resolved),
+            Identity::App(620),
+            "the title settles it"
+        );
+
+        let mut unheld = titled("Monster Hunter World: Iceborne Digital Deluxe");
+        unheld.steam_app_id = Some(13_009);
+        assert_eq!(identity_of(&unheld), Identity::Unheld(13_009));
+
+        let mut disputed = titled("a title matching nothing");
+        disputed.steam_app_id = Some(620);
+        assert_eq!(
+            identity_of(&disputed),
+            Identity::Disputed(620),
+            "620 is Portal 2, not this"
+        );
+        assert_eq!(app_id_of(&disputed), None, "and no page of it is an app's");
+
+        assert_eq!(
+            identity_of(&titled("a title matching nothing")),
+            Identity::Unknown
+        );
+
+        // An app the store refused to describe when the sweep asked is left for the item service,
+        // whether the tables name it or the store published its id: the refusal may be over, and a
+        // region restriction may not apply where the reader is.
+        let mut restricted = titled("yulgang next");
+        restricted.steam_app_id = Some(4_600_150);
+        assert_eq!(identity_of(&restricted), Identity::Unheld(4_600_150));
+
+        // A row the snapshot holds WITHOUT a name — the store published none — is no evidence
+        // either way: the id is unheld, not disputed, and the item service gets to say.
+        let nameless = crate::store_inventory::steam::snapshot::by_id(4_278_390)
+            .expect("the test needs a row the snapshot holds without a title");
+        assert!(nameless.name.is_empty(), "{nameless:?}");
+        let mut unnamed = titled("a title matching nothing");
+        unnamed.steam_app_id = Some(4_278_390);
+        assert_eq!(identity_of(&unnamed), Identity::Unheld(4_278_390));
+    }
+
+    /// The curated table answers first, so its hand-written aliases keep their say.
+    #[test]
+    fn the_curated_table_is_consulted_before_the_snapshot() {
+        let known = all().next().expect("the curated table is not empty");
+        assert_eq!(app_id_of(&titled(known.name)), Some(known.app_id));
+        for alias in known.aliases {
+            assert_eq!(
+                app_id_of(&titled(alias)),
+                Some(known.app_id),
+                "alias {alias:?}"
+            );
+        }
+    }
+
+    /// The point of the whole exercise: a game the curated 415 do not carry now resolves.
+    #[test]
+    fn a_game_outside_the_curated_table_resolves_through_the_snapshot() {
+        // Valve's own back catalogue, which the curated table has never carried.
+        for (title, app_id) in [
+            ("Counter-Strike", 10),
+            ("Team Fortress Classic", 20),
+            ("Day of Defeat", 30),
+        ] {
+            assert!(
+                by_name(title).is_none(),
+                "{title} should not be in the curated table"
+            );
+            assert_eq!(app_id_of(&titled(title)), Some(app_id), "{title}");
+        }
+        // And through the edition fallback, which is what a reseller actually prints.
+        assert_eq!(
+            app_id_of(&titled("Counter-Strike - Deluxe Edition")),
+            Some(10)
+        );
+        assert_eq!(
+            app_id_of(&titled("Day of Defeat Complete Edition")),
+            Some(30)
+        );
+    }
+
+    /// Ambiguity resolves to nothing rather than to a guess — the "Ashen" failure this crate
+    /// already records, kept shut at the new step too.
+    ///
+    /// The titles below are shared by more than one app-id in the snapshot AND absent from the
+    /// curated table, so nothing resolves them earlier and the snapshot has to refuse.
+    #[test]
+    fn a_title_several_games_share_resolves_to_none_of_them() {
+        for shared in ["Dragon Nest", "Space Ark"] {
+            assert!(
+                by_name(shared).is_none(),
+                "{shared} should not be in the curated table"
+            );
+            assert_eq!(
+                app_id_of(&titled(shared)),
+                None,
+                "{shared} is carried by several apps"
+            );
+        }
+        assert_eq!(app_id_of(&titled("nothing is called this at all")), None);
+        assert_eq!(app_id_of(&titled("")), None);
+    }
 
     /// The house rules, held mechanically: nothing empty, no app-id twice, every tag list
     /// populated, every count consistent with its band.

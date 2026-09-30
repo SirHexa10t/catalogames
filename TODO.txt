@@ -19,6 +19,26 @@ Steam giveaway listing
 Paste bundle URL after the title, in the form
 
 
+
+
+add a green checkmark after bundle titles that have a wishlisted game: ✔️
+    if more than one such game, add "x<numer>", e.g.: ✔️ x3
+
+Similar thing with red ❌ and pre-owned games (including "❌ x3")
+
+If bot are applicable, add the checkmark first
+
+
+
+add a library-browser; browse owned games by:
+    review scores
+    tags with "AND"/"OR" operations between them (I think Steam only uses "AND")
+    price (you can expect expensive games with great score ("band") to be generally better - people aren't as forgiving if they paid a lot)
+    devs, publishers
+    name (substring)
+
+
+
 New game modules for Steam:
     Free (games that are free at the time of checking, and assumed to usually remain free)
     Delisted
@@ -257,7 +277,13 @@ Fields `GetItems` returns that the sweep does NOT yet ask for (noted 2026-09-20)
                               over 100 games, 38% of developers and 16% of publishers carry no
                               clan id, so an id-and-dictionary scheme would lose a third of them.
         categories            controller_categoryids, feature_categoryids,
-                              supported_player_categoryids                <- the `features` field
+                              supported_player_categoryids  <- NOW FETCHED as the `feats` column,
+                              the three arrays merged. IStoreBrowseService/GetStoreCategories/v1
+                              is keyless and returns all 72 with names and kinds in ONE request —
+                              the exact counterpart of GetTagList, written to steam-categories.tsv.
+                              Two ids can share a name (30 and 51 are both "Steam Workshop", 55
+                              and 56 both "DualShock Controller Support"), so it is an id->name
+                              lookup and never the reverse.
         included_items        included_apps, included_bundles, included_packages
                               <- NOW FETCHED. Corrected from an earlier note that called this the
                               DLC-to-parent link outright: for a GAME it returns store packages,
@@ -273,19 +299,364 @@ Fields `GetItems` returns that the sweep does NOT yet ask for (noted 2026-09-20)
                               included_game_count, must_purchase_as_set
         purchase_options      the same, one per edition — several per game
         package_groups        name
-        supported_languages   elanguage, full_audio, subtitles, supported (27 entries on app 620)
+        supported_languages   NOW FETCHED as three base-36 bit masks over `elanguage`, one per
+                              flag. They are NOT nested: measured over 3,683 rows, `supported`
+                              holds for 3,676, `subtitles` 2,360, `full_audio` 1,348, and
+                              `supported` is false 7 times, so none is derivable from another.
+                              elanguage runs 0..=31, which fills a u32 EXACTLY — a 33rd language
+                              overflows it, so the codec refuses one and raises
+                              `language-out-of-range` rather than dropping it.
+                              DROPPED: `eadditionallanguage`, the regional variant (Spanish-Spain
+                              vs Spanish-LatAm) on 13.6% of rows, whose ids run past 54 and would
+                              need a second wider mask per flag for a distinction nothing queries.
         assets                header, hero_capsule, library_capsule, page_background_path, …
         screenshots           all_ages_screenshots
         trailers              highlights, other_trailers
         full_description_bbcode
         tagids                the same ids as `tags`, without the weights
         platforms             steam_os_compat_category, steam_frame_compat_category,
-                              steam_machine_compat_category  <- beside the Deck one already taken
+                              steam_machine_compat_category  <- NOW FETCHED as the `compat`
+                              column. Each is 0-3 like the Deck one, so three of them are exactly
+                              six bits and exactly one base-64 digit with nothing wasted. Deck
+                              keeps its own column: it is the one anyone reads by eye, and a
+                              fourth field would spill into a second character.
 
-    `tags` carries a WEIGHT per tag that the sweep currently drops. That is the vote count behind
-    the ordering, and it is what would let a reader say how strongly a tag applies rather than
-    only that it does.
+    `tags` carries a WEIGHT per tag that the sweep still drops, DELIBERATELY. It is the vote count
+    behind the ordering, and it would let a reader say how strongly a tag applies rather than only
+    that it does — but it is the most expensive column measured: 52.2 ch/row raw, 8.48 MB over
+    162,371 rows, more than everything else added put together. The ordering itself is free and
+    already kept: the array arrives sorted descending by weight in 150 of 150 apps sampled, so
+    position already encodes rank and only magnitude is missing. If it is ever wanted, store one
+    absolute anchor plus 19 single-character ratios to it: 19.8 ch/row, 3.22 MB, 62% cheaper.
 
+    STILL UNTAKEN, both measured, both cheap, neither chosen:
+        content_descriptorids  mature-content flags on 37% of games — 1 nudity, 2 violence/gore,
+                               3 adult-only, 4 frequent adult, 5 general mature. Five values fit
+                               one base-36 character: 0.16 MB.
+        basic_info.franchises  "Dota", "The Witcher", on 18% of games. 0.43 MB as names.
+
+    BOTH RESOLVED 2026-09-25 by the union sweep; kept here for the reasoning. The resume offset is
+    fixed (each country is walked from 0 under a stable sort, and finished countries are recorded
+    with a `# done CC` line in the roster), and the shortfall is gone: Name_ASC took the catalogue
+    from 162,371 to 188,310 in one country, and seven more countries added 140 games between them
+    — JP 69, PL 23, ZA 12, IN 10, BR 10, IL 8, AU 8.
+
+    AND TWO COUNTRIES ARE ENOUGH. Re-querying those 140 under 18 country codes: JP can describe 124
+    of them, KR and SG 70 each, everything else fewer. CA + JP therefore covers 188,434 of 188,450,
+    and 13 of the 16 it misses are reachable from no country at all — so the real miss is three
+    games. Measured cost: 67 min per country enumeration (1,885 pages at 2.13 s), 56 min to
+    describe 188,450 apps, 10.2 h for the eight-country run against about 3.3 h for CA + JP. The
+    full table is in the module docs of src/store_inventory/steam/mod.rs; the sweep still defaults
+    to eight because that is what produced the committed snapshot.
+
+    WHAT REMAINS UNRESOLVABLE, measured: 13 apps of 188,450 that the search listed during
+    enumeration and that NO country would describe afterwards — 18 country codes tried, plus
+    appdetails, all refusing. They are not a defect in the sweep. A full sweep takes hours, and an
+    app unpublished inside that window is listed by the phase that ran first and gone by the phase
+    that ran second. The only way to shrink it is to shorten the gap.
+
+    TWO OPEN FAULTS IN THE SWEEP ITSELF (found 2026-09-21, both since fixed — kept for the
+    reasoning, since each needed a decision rather than a patch):
+
+        Resume restarts at the wrong offset. `enumerate` resumes a part-written roster with
+        `start = ids.len()`, but ids are DEDUPLICATED while the offset counts positions walked, so
+        the two diverge and the run re-walks pages it already has. It self-corrects (duplicates are
+        dropped) and cost about 88 seconds once, so the damage is time, never wrong data. A real
+        fix has to persist the offset, and every place to put it is a tradeoff: a comment line
+        interleaved through the roster (append-only, but scatters ~1,900 comments through 162,371
+        lines), a sidecar file (clean, but a whole file for six bytes), or accept the re-walk on the
+        grounds that the store's relevance order shifts between runs anyway, which makes an exact
+        resume offset meaningless in the first place. That last reading is the reason this is not
+        simply a bug: it may be right.
+
+        Enumeration reaches 162,371 of the ~187,500 the store reports — 25,101 short. MEASURED
+        2026-09-22, and it is neither delisting nor region-locking:
+
+          - The sweep does NOT stop early. It walked to offset 187,592, past the reported total,
+            and got an empty page. ~187,600 slots yielded 162,371 unique ids.
+          - THE RELEVANCE ORDER IS NOT STABLE FOR EVEN A MINUTE. The same offset fetched twice
+            40 seconds apart returned 0 of 100 identical positions and not even the same SET.
+            `sort_by=Name_ASC` at the same offset returned all 100 identical, in order. Paging by
+            offset over a continuously reshuffled ranking samples a moving target, so slots are
+            spent on rows already seen while others are never surfaced.
+          - Locally the pages are clean — 5 consecutive pages gave 500 distinct ids at offsets 0,
+            60k and 120k — so the loss is not adjacent-page overlap. It accumulates across the
+            48-minute walk.
+          - The missing ids are REAL AND LIVE. 150 sampled from a Name_ASC walk that the roster
+            lacks all resolved with success=1 (a delisted app fails there). Mostly obscure —
+            median 1 review, 67 of 150 with none — but not junk: app 270550, Yet Another Zombie
+            Defense, has 12,391 reviews. They are visible from the same machine that ran the
+            sweep, so they are not region-locked either.
+          - A Name_ASC sample of 18 pages found 13.2% of its ids absent from the roster, which
+            extrapolates to ~24,700 over 187,510 — the observed 25,101 to within 1.6%.
+
+        THE FIX IS `sort_by=Name_ASC` ON THE ENUMERATION URL, and it is free. The alternative,
+        IStoreService/GetAppList, is authoritative in four requests but needs a Web API key the
+        tool would then have to hold. (`Released_ASC` is silently ignored by the store; Name_ASC
+        genuinely reorders.) Caveat worth checking on the first full run: games sharing a name
+        have no defined tiebreak, so a handful may still shuffle.
+
+        SEPARATE FINDING, REPRODUCIBILITY: the enumeration URL passes no `cc`, so the store
+        geolocates the machine and the snapshot is implicitly scoped to wherever the sweep ran —
+        nothing in the file records which. Measured on one stable Name_ASC page: no `cc` was
+        byte-identical to cc=IL, while cc=US totalled 187,569, cc=JP 187,302, cc=RU 183,316 and
+        cc=DE only 156,893 — 30,618 fewer games, an entirely different page. Two operators would
+        therefore produce materially different files from the same command and no way to tell.
+        Passing an explicit `cc` and naming it in the header would fix that; which country is the
+        developer's call, since it decides what the snapshot is a snapshot OF.
+
+        CAN WE GET ALL GAMES, FOR ANY COUNTRY? MEASURED 2026-09-23. Yes, and WITHOUT unioning
+        several countries' enumerations — one sweep from a permissive country is enough:
+
+          - There is no keyless global list to fall back on. ISteamApps/GetAppList 404s on both
+            v1 and v2, confirming the earlier note.
+          - Totals over 22 country codes: CA 188,169 (highest), MX 188,168, US 188,164, PL
+            188,161, SE 188,160, GB 188,156 … then a cliff: RU 183,908, CN 177,744, DE 157,474.
+            The top SIXTEEN are within 65 of each other, so "most permissive" is a tier, not one
+            country, and which of them is highest will vary run to run.
+          - THE RESTRICTED COUNTRIES ADD NOTHING. 800 app-ids listed by JP, RU, DE and CN — 200
+            each, taken from their own Name_ASC pages — were ALL visible under CA. The censored
+            catalogues are strict subsets, which is what censorship means and is worth having
+            measured rather than assumed.
+          - The top tier barely differs at all. CA and MX, whose totals differ by 1, showed 14
+            apparent differences over a 400-id window; 13 were the window sliding a few positions
+            alphabetically (CA had "Mad*" titles, MX "Lux*") and exactly ONE was a real regional
+            exclusion — 2987800, Madoka Magica Magia Exedra, in CA and not MX. It is visible in
+            CA, so a CA sweep catches it.
+
+        SO: enumerate once, with `sort_by=Name_ASC&cc=CA` (or any of the top tier), and the id
+        universe is essentially complete. Unioning a second country would double the enumeration
+        cost to gain a handful of rows.
+        CORRECTION, 2026-09-24: "essentially complete from one country" IS WRONG, and the 25
+        `unresolved` rows are the counter-example. Those apps were enumerated by an IL-geolocated
+        search and then refused by an item service asked as `US`. Re-queried: 0 of 25 resolve
+        under US, 6 under CA, 18 under DE, 18 under JP, and ALL 25 under IL. So 19 games visible
+        in IL are invisible in CA — CA is not a superset of IL, and the earlier conclusion was
+        drawn from a test that only ever compared JP, RU, DE and CN AGAINST CA, never the reverse.
+        Countries differ in BOTH directions; the developer's instinct that a union would be needed
+        was right and the advice against it was not.
+
+        What one country does buy is CONSISTENCY: whichever is chosen, using it for both the
+        enumeration and the description means nothing is listed and then refused, which is what
+        drives `unresolved` to zero. Completeness across countries is a separate, unfinished
+        question, and its cost is one enumeration per country unioned.
+
+        PER-COUNTRY AVAILABILITY IS A SEPARATE AXIS, and it does not need a second enumeration:
+        GetItems takes `country_code` and reports `visible` per app. Measured over 150 roster ids
+        — US 150/150 visible, JP 150, IL 150, RU 146, DE 133. If the program should say "you
+        cannot buy this where you are", the cheap shape is a bitmask column over the few countries
+        that actually restrict (DE ~16% blocked, CN ~6%, RU ~2%), roughly one character per row.
+        The cost is one extra describe pass per country listed: 1,083 batches, about 27 minutes
+        each. Not free, and not needed for the catalogue itself — flagged, not chosen.
+
+
+The 62 `no-release-date` rows, researched 2026-09-26 by researcher__primary and verified here.
+THE FRAMING WAS WRONG: these are not dates Valve lost, they are dates Valve never published.
+
+    VERIFIED DIRECTLY. `appdetails` returns `{"coming_soon": false, "date": ""}` for apps 11180,
+    22140, 34330, 214560 and 238070 — the field is PRESENT and EMPTY, so Valve's own record holds
+    a blank rather than a gap. Archived store pages from 2009, 2012 and 2015 carry no "Release
+    Date" row at all: the glance block runs description straight into "User reviews:".
+
+    AND 14 OF THE 62 ARE NOT GAMES, counted against the snapshot's own titles: SteamVR (87,109
+    reviews), Arma 3 Tools, Arma 3 Samples, four Halo MCC mod-tool SKUs, TestApp, testvvv, Steam
+    Next Fest, Welcome To Steam Next Fest, Biohazard 6 Benchmark Tool, Disintegration Technical
+    Beta, Murino Adventures Demo, Serious Sam Fusion 2017 (beta). A release date is not a thing
+    those have. Counting them as defects overstates the problem by roughly a quarter.
+
+    DO NOT USE WIKIDATA FOR THIS COLUMN. It answers a different question: P577 is the publication
+    date of the GAME, not of the Steam listing, and the difference is not cosmetic. Verified:
+        242050  Assassin's Creed IV     P577 2013-10-29 — the console launch; the archived Steam
+                                        page says 19 Nov 2013. Wrong by three weeks, and the
+                                        "Microsoft Windows" platform qualifier does not protect you.
+        38480   Earthworm Jim           FOUR P577 values at three precisions — 1994-08-02,
+                                        1995-06-23, 1994-10-01 (month), 1994-01-01 (year).
+        238070  Shadow Warrior Classic  P577 1997-05-13, decades before the Steam listing.
+    Day precision is `wikibase:timePrecision` 11; 10 is month and 9 is year. Filtering on 11 is
+    necessary and not sufficient — the trap above survives it.
+
+    WAYBACK IS DIFFERENT IN KIND, and this is the distinction that matters: an archived store page
+    is VALVE'S OWN published date, recovered from Valve's own page. It is not a third-party
+    substitute, so it raises no provenance question. The researcher swept 56 of the 62 and found 8
+    full dates, cross-checked against Wikidata where both exist:
+        33900 2009-06-29   36130 2009-07-17   36150 2009-07-17   63380 2012-04-30
+        102500 2012-02-07  225640 2012-12-21  237570 2013-06-07  242050 2013-11-19
+    One conflict resolved in Wayback's favour (Arma 2: Wikidata carries both 06-17 and 06-29, the
+    archived page says 29 Jun). One unresolved one-day gap (225640: Wayback 21 Dec, Wikidata 22
+    Dec) — treat a one-day disagreement as unresolved rather than picking.
+    Three parsing traps, all of which bit the researcher: the `release_date` CSS class is REUSED
+    for the user-reviews block in 2014+ markup, so anchor on the literal label "Release Date:";
+    two date formats appear by locale ("Apr 30, 2012" and "29 Jun, 2009"); and LATER SNAPSHOTS ARE
+    WORSE — a 2015 capture of a delisted app shows "no longer available" with no date where a 2012
+    capture still has one, so walk oldest-first and stop at the first full date.
+
+    ISTHEREANYDEAL is the cheapest untried route and needs a free API key. Two calls: a KEYLESS
+    id-mapping POST to /lookup/id/shop/61/v1 which the researcher verified maps all 62, then
+    GET /games/info/v2?id=<uuid> which needs the key and returns `releaseDate` already as
+    YYYY-MM-DD and nullable, so "they do not know" is distinguishable from a guess. Rate limit is
+    1000 requests per 5 minutes on a verified account. Yield for these specific ids is UNMEASURED,
+    because registering an account is the developer's to do, not an agent's.
+
+    ELIMINATED with evidence: SteamSpy has no date field at all; PCGamingWiki refuses anonymous
+    Cargo queries AND is CC BY-NC-SA, which is a licence problem for a GPL-3.0 repo regardless;
+    SteamDB forbids automated access in its FAQ; Steam Charts 500s and carries no dates; VG
+    Insights and Gamalytic expose no reachable API; IGDB prohibits redistribution. Of Valve's own
+    surfaces, `packagedetails` is actively dangerous — app 214560 (Mark of the Ninja) has an empty
+    date while its package 271120 says "Oct 9, 2018", because that sub is the REMASTERED edition,
+    a different product. Localised store pages and the per-app news RSS give nothing.
+
+
+Classifying Steam ids the tables do not hold (found 2026-09-29 while fixing bundle links; BUILT
+2026-09-29 as `steam::items`, gate phase4-classify):
+
+    Fanatical publishes Steam BUNDLE ids in `steam_id` — Iceborne Digital Deluxe carries 13009,
+    which is /bundle/13009, and /app/13009 bounces to the store front. `inventory::steam::
+    identity_of` says how far a published id is trusted (App / Unheld / Disputed / Unknown), and
+    `sales` makes ONE batched IStoreBrowseService/GetItems request per run for the unheld and
+    disputed ids, each asked as every kind it could be; `render::page_of(game, &classified)` then
+    links a found id to Steam's own store_url_path, an id nothing claims to a search, and an id
+    never asked (offline, a failed request, a library caller) exactly as before. A failure, an
+    unanswered id and an id claimed by two kinds are all said above the listing.
+
+    SIX TRAPS, all measured (fixture tests/fixtures/steam/getitems-13009-4278390-620.json):
+      - `success` is an EResult (1 success, 15 refusal), never a boolean; a FAILED probe still
+        answers with a path built from the id alone (`app/0/`, `bundle/620/`), so the path's
+        shape is no signal — only `success == 1 && visible` is.
+      - an id can be several things at once: 620 is app 620 (Portal 2) AND package 620 ("18
+        Wheels of Steel", whose path is app/12520/…). Every claim is kept; the store's title
+        picks by NAME (same_title against the claim's name), precedence app > bundle > package
+        only breaks ties; collisions are reported as a note.
+      - a package resolves to an APP's page, so the path is emitted verbatim, never `/sub/<id>`
+        built from the kind — and re-encoded on the way out (it is external text in a shell
+        script's URL).
+      - a removed app fails all three probes: a class of its own, linked as a search, not a bad
+        id. "Asked and nothing claims it" is kept apart from "never asked".
+      - an ask the service leaves out leaves the id UNASKED (today's link), never "nothing".
+      - the cap is the encoded request's LENGTH, answered with HTTP 400 (200 asks fine, 500
+        refused), not truncation: BATCH = 150 asks (entries, not ids — an unheld id spends 3),
+        and a 400 splits the chunk and retries.
+    Also measured earlier: `/app/<id>` bouncing has three causes (removed, superseded — 34330 →
+    /app/201270 — and the age gate), so a redirect is never the classifier; and a single-id
+    `appdetails` request can answer keyed under a different app-id.
+
+    The request names one country (US): a title unsold there is classified as nothing and gets
+    a search link. Rare; the sweep, which needs the app itself, asks per country instead.
+
+Steam data holes (2026-09-29; FILLED 2026-09-30 — see the end of this entry):
+
+    steam-issues.tsv records 158 holes over 149 apps. The researcher settled kinds 1–4 (51 of
+    54) from Steam-owned sources; kinds 5–6 (no-release-date, no-tags) were still running when
+    this was written. Findings worth building on rather than patching once:
+      - steamcommunity.com/app/<id>/ keeps a title (`apphub_AppName`, or the page <title> minus
+        "Steam Community :: ") when the store API publishes an EMPTY name and after the store
+        listing is gone: 17 of 18 no-name apps and 14 of 17 removed ones resolved there. It
+        rate-limits harder than the store — HTTP 429 at ~1.2 s spacing, fine at 3 s. A sweep
+        fallback for no-name apps, clearly marked as such, would close this class for good.
+      - the no-name apps are not broken records: success=1, visible=true, type 0, and Valve
+        publishes "" as the name. The hole is upstream.
+      - 4600150 ("yulgang next") is REGION-LOCKED, and steam-delisted-games.tsv already says so
+        (`region_restricted`, with its name): the first country the sweep asks, CA, returned the
+        flag and the name with its refusal. An earlier note here said the ledger had it as
+        `removed`; it never did.
+      - no-platform: 6 state Windows only on the page's System Requirements tab (both APIs flag
+        nothing); 12 have no System Requirements block at all, 10 of them VR titles whose
+        GetItems `vr_support` is populated (vrhmd_only) while `platforms` is empty. A schema
+        that can say "VR, OS unstated" is more honest than a blank or an inferred Windows.
+      - 473930 is "Steam Gift Cards", Valve type 14 (advertising).
+      - unresolved after that: 3244680 (no-name; login-walled — /app/ redirects to Sign In, the
+        hub errors), 3657130 and 5009660 (gone, no title anywhere Steam-owned). The developer
+        saved their SteamDB pages: "Cards of Gluttony" (live, coming soon; SteamDB's store name
+        is a placeholder, so the store really publishes none), "Kinky Party" and "Haunted Love"
+        (both `ReleaseState: prerelease` — never released — and last changed on 2026-09-25 at
+        23:39 and 23:40 UTC, the evening before the sweep first missed them).
+      - no-release-date (kinds 5, 62 rows): 59 return `release_date {coming_soon: false, date: ""}`
+        — present and EMPTY, no Release Date row on the page, none in archived copies back to
+        2009 — so "no date shown" is the true value and `?` should stay. The other three change
+        rows: 1061280 ("Plastic Love") and 1087030 ("Cooking Championship") ARE coming-soon per
+        appdetails ("To be announced" / "Coming soon") while GetItems sets no is_coming_soon for
+        either — a SWEEP BUG: reading coming-soon from GetItems alone lets this class through;
+        and 34330 (Total War: SHOGUN 2) is SUPERSEDED — /app/34330 redirects to /app/201270,
+        whose "15 Mar, 2011" is the successor's date, while appdetails for 34330 itself is
+        empty. Any fetch that reads a date off a page without checking the effective URL will
+        silently give an app its successor's date (same trap as no-platform, different field).
+        1061280 is NOT gone: its page redirects to a login-walled age check (an earlier note here
+        said "gone from the storefront", from a redirect classifier that did not decode the URL).
+      - no-tags (kind 6, 43 rows): none recoverable — no tags from GetItems and no "Popular
+        user-defined tags" section on any page. The names say why: dedicated servers, SDKs, mod
+        tools, editors, benchmarks and demos (DayZ Tools, Arma 3 Tools, CRYENGINE sample assets,
+        Scram SDK, BookConverter…), product types Steam collects no user tags for. "None shown"
+        is correct and will not fill. These are also candidates for the non-game sweep below,
+        since Valve's `type` did not flag them.
+      - coverage caveats: seven pages are age-gated and were not bypassed (102500, 202170,
+        214560, 437350, 755640 — appdetails settled them with empty dates — and 2656960,
+        3351240, settled on GetItems evidence only). Redirects, re-checked with the URL decoded:
+        only 3029110 goes to the bare store root and is gone; 1061280 goes to a login-walled age
+        check, 1673210 and 4845270 to /sale/nextfest, 3482260 to /subscriptions/gtaplus — all
+        alive. The rule that works: only a redirect to the bare store root means gone, and decode
+        before matching. 231390 is region-locked out of the US and answers an empty date as JP.
+    HOW THEY WERE FILLED (built 2026-09-30, gate steam-overrides):
+      - live apps: data/steam/steam-overrides.tsv, 25 facts — 17 names, 6 Windows flags, 2
+        coming-soon facts (now `released` TBA) — applied by compare-and-swap on every sweep and by
+        `steam_catalogue --apply-overrides data/steam` without one (store_inventory::steam::
+        overrides). A fact the store has since published, contradicted or delisted is reported
+        in steam-issues.tsv (override-redundant / -stale / -orphaned), and a stale or orphaned
+        one fails the build until settled.
+      - delisted apps: their 16 missing names are in steam-delisted-games.tsv, which the sweep
+        already keeps across runs. Since the `?` redesign below, refusal lives in that ledger and a
+        delisted id is always left for the item service to classify, so the two SteamDB apps also
+        carry their known cells in the snapshot (20 more facts).
+      - two reader bugs fixed at the source rather than papered over: repair_dates now reads
+        `coming_soon` from appdetails, and a blank name takes the title the store's search
+        printed (the roster). The facts for 1061280, 1087030 and 3400140 are therefore born to
+        retire: the next sweep reports them override-redundant, and they can be deleted.
+      - left open on purpose: 708030, whose only title anywhere is Valve's placeholder
+        "ValveTestApp708030"; 12 no-platform apps whose pages name no OS (10 of them VR-only);
+        the 59 genuinely undated and 43 genuinely untagged apps; and 34330, whose only date is
+        its successor's.
+    FIXED 2026-09-30 (the developer's rule: aggregate — write what we did not have, keep what we
+    did): describe() kept only the FIRST country's refusal, so a name or a region flag that only a
+    later country sent was lost, and an app only a later country answered for got no row at all.
+    merge_answer() now folds every country's answer in.
+    THE `?` REDESIGN (decided by the developer 2026-09-30, gate unknown-cells):
+      - `?` means "unknown to us" in any cell and nothing else; an all-`?` row is an app known only
+        by its id. That the store refuses an app is recorded in steam-delisted-games.tsv, which the
+        library now reads (store_inventory::steam::delisted): a delisted id is always Unheld, so
+        the item service is asked at run time, and offline a removed app gets a search link while
+        a region-restricted one keeps its /app/ page.
+      - the `soon` column is gone; `released` says what we know: YYYY-MM-DD out, ~YYYY-MM-DD
+        planned, TBA unannounced, X out with no published date, ? unknown. Migrated without a
+        sweep, keyed on the cells: 130,723 dates, 41,935 TBA, 15,966 planned, 60 X, and the 17
+        all-? rows, whose `?` changed meaning from "refused" to plain "unknown". The 62
+        no-release-date issues the new rules settle were dropped.
+      - language masks are 64-bit: the largest 32-bit mask in the 2026-09-26 file was exactly
+        u32::MAX. 0 = none listed; a list of regional variants alone is written `?`.
+      - devs/pubs: empty = the store lists none, `?` = unknown.
+      - the reader reads each cell as known or unknown (a malformed cell too, rather than losing
+        the row); store_inventory::steam::doctor checks the file against the same grammar, and a
+        test fails the build on anything invalid in the committed file.
+      - repair_dates asks each of the sweep's countries in turn until appdetails answers, so an
+        app sold only elsewhere (231390, answered only as JP) is settled rather than left `?`.
+      - OPEN: `X` is the developer's token; both reviewing siblings prefer `OUT` (reads as "out",
+        not as a negation). One constant — snapshot::UNDATED — plus the 60 cells.
+      - Tag order for the two SteamDB apps: the first five are by votes; the rest are in SteamDB's
+        listing order, which is not Valve's (checked on 3244680, where both lists are known).
+
+Decided 2026-09-29, to do after the data work above:
+    - the "by-name file" plan is DROPPED, and gone from store_inventory/steam/mod.rs — the
+      in-memory title index (225 ms once per process in release, 29 µs a lookup) stands in for it;
+    - that module's overview should stop describing the actual inventory (counts, the sweep's
+      figures): the data file is self-evident. Rewrite it once the holes are patched and the
+      non-game sweep exists, so the numbers are not rewritten twice;
+    - Steam's NON-GAME applications (software, DLC, demos, tools, videos) get a sweep of their
+      own into another .tsv, later perhaps merged with a column saying what kind of thing the
+      page is; and "querying tools for the entries we have not discovered" — apps the store's
+      search never lists.
+
+Fanatical's own review band as a last fallback (raised 2026-09-29, deferred): a product record
+carries Valve's `steam_review_score` (0-9) and `steam_review_score_desc`, so a game neither table
+holds could still show a band. Deferred because it needs a field on `Game` — the vendor-agnostic
+model — and the residue it would serve is games newer than the snapshot plus bundle/package ids,
+which have no band anyway. Worth doing only if that residue is ever measured to matter.
 
 Publishing, before `cargo publish` is ever run (found 2026-09-16, not acted on — both are
 release decisions rather than refactors, so they are the developer's to make):

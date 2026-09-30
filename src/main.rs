@@ -16,6 +16,7 @@ use catalogames::inventory::steam as steam_inventory;
 use catalogames::inventory::steam::{Tag, source};
 use catalogames::render::{self, Palette, Preview};
 use catalogames::steam;
+use catalogames::steam::items::Classified;
 use catalogames::user_games::holdings::Holdings;
 use catalogames::{Error, Listing, links};
 use clap::Parser;
@@ -110,19 +111,26 @@ fn sales(
     notes.insert(0, held.summary());
     notes.extend(held.problems.iter().cloned());
 
+    // One request to Steam for the ids no table could settle, before anything is drawn, so a
+    // bundle id a store published as an app id links to its own page rather than bouncing. Said
+    // above the listing like the holdings summary when it fails or leaves a question open: the
+    // links are then what the stores published, and a reader should know that is all they are.
+    let (classified, asked) = classify(&listings);
+    notes.extend(asked);
+
     if plain || !interactive() {
         for note in &notes {
             eprintln!("catalogames: {note}");
         }
-        print(&listings, &held);
+        print(&listings, &held, &classified);
     } else {
-        match terminal_gui::picker::pick(listings, palette(), &notes, &held)? {
+        match terminal_gui::picker::pick(listings, palette(), &notes, &held, &classified)? {
             None => eprintln!("catalogames: cancelled — nothing was picked"),
             // An empty pick prints nothing, which is byte-identical to no store having a
             // bundle. Two different outcomes need two messages.
             Some(picked) if picked.is_empty() => eprintln!("catalogames: nothing was ticked"),
             Some(picked) => {
-                print(&picked.listings, &held);
+                print(&picked.listings, &held, &classified);
                 let path = out.unwrap_or_else(|| Path::new(links::FILE_NAME));
                 write_opener(path, &picked.links)?;
                 eprintln!(
@@ -315,7 +323,7 @@ fn keep(listings: &[(Vendor, Listing)]) {
 /// The header appears only when more than one store is listed, so naming a single store prints
 /// exactly what it always did. With several, it says whose bundles follow — which is also how
 /// Fanatical's request to be cited when its data is shown is met.
-fn print(listings: &[(Vendor, Listing)], held: &Holdings) {
+fn print(listings: &[(Vendor, Listing)], held: &Holdings, classified: &Classified) {
     for (position, (vendor, listing)) in listings.iter().enumerate() {
         if listings.len() > 1 {
             // A blank line above every heading, and a second one between sections, so a store's
@@ -326,8 +334,60 @@ fn print(listings: &[(Vendor, Listing)], held: &Holdings) {
             }
             println!("[{}]\n", vendor.site());
         }
-        std::print!("{}", render::listing(listing, palette(), held));
+        std::print!("{}", render::listing(listing, palette(), held, classified));
     }
+}
+
+/// What the item service says the ids no table could settle are, and what a reader should be
+/// told about it: that Steam could not be asked, that it left some ids unanswered, or that an id
+/// is claimed by more than one kind of item and a choice was made by name.
+///
+/// No unsettled ids, no request. A failure is a note rather than an error, because the links
+/// then fall back to what the stores published — which is all they were before this existed.
+fn classify(listings: &[(Vendor, Listing)]) -> (Classified, Vec<String>) {
+    let asks = Classified::asks(listings.iter().map(|(_, listing)| listing));
+    if asks.is_empty() {
+        return (Classified::none(), Vec::new());
+    }
+    let ids = asks
+        .iter()
+        .map(|ask| ask.id)
+        .collect::<std::collections::BTreeSet<u32>>()
+        .len();
+    let classified =
+        match steam::store::Client::new().and_then(|client| Classified::fetch(&client, &asks)) {
+            Ok(classified) => classified,
+            Err(why) => {
+                return (
+                    Classified::none(),
+                    vec![format!(
+                        "Steam could not be asked what {ids} unconfirmed id(s) are ({why}); their \
+                     links are as the stores published them"
+                    )],
+                );
+            }
+        };
+    let mut said = Vec::new();
+    if !classified.unanswered().is_empty() {
+        let left: Vec<String> = classified.unanswered().iter().map(u32::to_string).collect();
+        said.push(format!(
+            "Steam left {} of {ids} unconfirmed id(s) unanswered ({}); their links are as the \
+             stores published them",
+            left.len(),
+            left.join(", ")
+        ));
+    }
+    for (id, claims) in classified.shared() {
+        let as_what: Vec<String> = claims
+            .iter()
+            .map(|claim| format!("{:?} {:?}", claim.kind, claim.name))
+            .collect();
+        said.push(format!(
+            "Steam id {id} is claimed as {}; the page chosen is the one named like the game",
+            as_what.join(" and ")
+        ));
+    }
+    (classified, said)
 }
 
 /// One store's listing. Each store keeps its own handler; this only chooses between them.

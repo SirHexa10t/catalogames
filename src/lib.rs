@@ -34,4 +34,4 @@ pub mod user_games;
 mod write;
 
 pub use error::{Error, Result};
-pub use model::{Bundle, Game, Listing, Money, Price, Problem, ProblemKind};
+pub use model::{Bundle, Game, Ladder, Listing, Money, Price, Problem, ProblemKind, Tier};

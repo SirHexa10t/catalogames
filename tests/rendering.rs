@@ -4,8 +4,10 @@ use catalogames::clock::Timestamp;
 use catalogames::inventory::steam as steam_inventory;
 use catalogames::render::Palette;
 use catalogames::steam;
+use catalogames::steam::items::Classified;
+use catalogames::store_inventory::steam::snapshot;
 use catalogames::user_games::holdings::Holdings;
-use catalogames::{Bundle, Game, Listing, render};
+use catalogames::{Bundle, Game, Ladder, Listing, Tier, render};
 
 fn game(title: &str) -> Game {
     Game {
@@ -79,6 +81,7 @@ mod what_it_says {
             &listing(vec![bundle("A Bundle", &[UNKNOWN])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         // The trailing "-" is the review column with nothing in it.
         assert_eq!(lines(&rendered), ["A Bundle", &format!("- {UNKNOWN} -")]);
@@ -93,6 +96,7 @@ mod what_it_says {
             &listing(vec![bundle("B", &[UNKNOWN, "Another Unknown Game"])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         for line in rendered.lines().filter(|l| l.starts_with("  -")) {
             let fields: Vec<&str> = line.split("  ").filter(|f| !f.trim().is_empty()).collect();
@@ -111,6 +115,7 @@ mod what_it_says {
             ]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         let lines = lines(&rendered);
         assert_eq!(lines[0], "Second Best");
@@ -125,7 +130,8 @@ mod what_it_says {
             lines(&render::listing(
                 &listing(vec![bundle("Empty", &[])]),
                 Palette::Plain,
-                &Holdings::none()
+                &Holdings::none(),
+                &Classified::none(),
             )),
             ["Empty"]
         );
@@ -134,7 +140,12 @@ mod what_it_says {
     #[test]
     fn renders_nothing_at_all_for_an_empty_listing() {
         assert_eq!(
-            render::listing(&listing(Vec::new()), Palette::Plain, &Holdings::none()),
+            render::listing(
+                &listing(Vec::new()),
+                Palette::Plain,
+                &Holdings::none(),
+                &Classified::none()
+            ),
             ""
         );
     }
@@ -155,6 +166,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
 
         assert!(
@@ -174,6 +186,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
 
         assert!(
@@ -195,6 +208,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         let derived =
             steam_inventory::Rating::from_score(entry.all_time.approval, entry.all_time.count);
@@ -215,6 +229,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
 
         let expected = format!("{} {}", recent.recent_rating().as_str(), recent.count);
@@ -231,6 +246,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
 
         match entry.recent {
@@ -248,6 +264,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[&entry.name.to_uppercase()])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(
             rendered.contains(&steam::app_url(entry.app_id)),
@@ -264,6 +281,7 @@ mod a_game_the_inventory_knows {
             &listing(vec![bundle("B", &[entry.aliases[0]])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(
             rendered.contains(&steam::app_url(entry.app_id)),
@@ -296,34 +314,183 @@ mod a_game_whose_store_supplied_an_app_id {
 
     #[test]
     fn links_straight_to_that_app_even_when_the_inventory_has_no_entry() {
-        // The id is an identity we already hold; falling back to a search would discard it.
+        // The curated table has never carried Counter-Strike; the snapshot has, and names it
+        // as the store does. An id a table confirms is an identity, and falling back to a
+        // search would discard it.
+        assert!(
+            steam_inventory::by_app_id(10).is_none(),
+            "the test needs an uncurated app"
+        );
         let rendered = render::listing(
-            &bundle_of(vec![identified(UNKNOWN, 550320)]),
+            &bundle_of(vec![identified("Counter-Strike", 10)]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
-        assert!(rendered.contains(&steam::app_url(550320)), "{rendered}");
+        assert!(rendered.contains(&steam::app_url(10)), "{rendered}");
         assert!(!rendered.contains(steam::SEARCH_BASE), "{rendered}");
     }
 
     #[test]
-    fn is_preferred_over_matching_the_title() {
-        // An id cannot resolve to the wrong game; a title once resolved "Ashen" to "Ashen
-        // Empires". Where a store gives both, the id wins.
+    fn an_id_nothing_holds_is_kept_when_the_title_resolves_nothing() {
+        // Nothing can confirm or deny an id no table holds — a game newer than the snapshot
+        // looks like this, and so does a bundle id — so once the title has resolved nothing
+        // the store's word is all there is, and it is linked. Loudly, if it was a bundle id:
+        // that page bounces, which is better than a silent search for a title nobody sells.
+        let rendered = render::listing(
+            &bundle_of(vec![identified(UNKNOWN, 999_999)]),
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        assert!(rendered.contains(&steam::app_url(999_999)), "{rendered}");
+        assert!(!rendered.contains(steam::SEARCH_BASE), "{rendered}");
+    }
+
+    #[test]
+    fn is_preferred_over_matching_the_title_once_a_table_confirms_it() {
+        // A title once resolved "Ashen" to "Ashen Empires", so an id the tables CONFIRM wins
+        // over any title: the same entry, reached by an id with the store's own edition wording
+        // beside it, is that entry and not a search for the wording.
         let Some(entry) = steam_inventory::all().next() else {
             return;
         };
-        let mislabelled = identified(entry.name, 999_999);
+        let worded = identified(&format!("{} - Deluxe Edition", entry.name), entry.app_id);
         let rendered = render::listing(
-            &bundle_of(vec![mislabelled]),
+            &bundle_of(vec![worded]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
+        );
+        assert!(
+            rendered.contains(&steam::app_url(entry.app_id)),
+            "{rendered}"
+        );
+        assert!(!rendered.contains(steam::SEARCH_BASE), "{rendered}");
+    }
+
+    #[test]
+    fn an_id_nothing_holds_yields_to_a_title_a_table_does() {
+        // The other way round: an id NO table holds might be a bundle id — Fanatical publishes
+        // Steam bundle 13009 in the same field — while a title that resolves exactly to a
+        // known game is the better lead. The title's game is linked, not the unconfirmed id.
+        let Some(entry) = steam_inventory::all().next() else {
+            return;
+        };
+        let rendered = render::listing(
+            &bundle_of(vec![identified(entry.name, 999_999)]),
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        assert!(
+            rendered.contains(&steam::app_url(entry.app_id)),
+            "{rendered}"
+        );
+        assert!(
+            !rendered.contains(&steam::app_url(999_999)),
+            "the unconfirmed id lost: {rendered}"
+        );
+    }
+}
+
+mod a_game_whose_id_the_tables_could_not_settle {
+    use super::*;
+    use catalogames::inventory::steam::Identity;
+    use catalogames::steam::items::parse;
+
+    /// The probe recorded in the fixture: 13009 is a bundle only, 4278390 is nothing under any
+    /// kind, and 620 is both app 620 and package 620.
+    const PROBE: &str = include_str!("fixtures/steam/getitems-13009-4278390-620.json");
+
+    fn identified(title: &str, app_id: u32) -> Game {
+        Game {
+            title: title.to_owned(),
+            machine_name: title.to_lowercase().replace(' ', "_"),
+            steam_app_id: Some(app_id),
+            contains: Vec::new(),
+        }
+    }
+
+    /// What a run would have asked for this listing, answered from the fixture — so a disputed
+    /// id is asked as a bundle and a package only, exactly as the real run asks it.
+    fn asked(listing: &Listing) -> Classified {
+        let answered = parse(PROBE, "fixture").expect("the fixture parses");
+        Classified::from_answers(&Classified::asks([listing]), &answered)
+    }
+
+    /// The bug that started this: Fanatical publishes bundle 13009 in the field it calls an app
+    /// id, and `/app/13009` bounces. Unasked, the link is as published; asked, it is the
+    /// bundle's own page — in the listing and in the opener alike.
+    #[test]
+    fn a_bundle_id_published_as_an_app_id_links_to_the_bundle_once_steam_has_been_asked() {
+        let title = "Monster Hunter World: Iceborne Digital Deluxe";
+        let listing = listing(vec![bundle_of(vec![identified(title, 13_009)])]);
+        let game = &listing.bundles[0].games[0];
+        assert_eq!(steam_inventory::identity_of(game), Identity::Unheld(13_009));
+        assert_eq!(
+            render::page_of(game, &Classified::none()),
+            steam::app_url(13_009),
+            "unasked: as published, which is all there is"
+        );
+        let bundle_page = "https://store.steampowered.com/bundle/13009/Monster_Hunter_World_Iceborne_Digital_Deluxe";
+        let classified = asked(&listing);
+        assert_eq!(render::page_of(game, &classified), bundle_page);
+        let rendered = render::listing(&listing, Palette::Plain, &Holdings::none(), &classified);
+        assert!(rendered.contains(bundle_page), "{rendered}");
+        let opened = catalogames::links::of_listing(&listing, &classified);
+        assert_eq!(opened[0].url, bundle_page, "the opener agrees: {opened:?}");
+    }
+
+    /// An id asked about and claimed by nothing — a removed app — is a search, since its page
+    /// would bounce. Unasked, silence is not "nothing": only an id the delisted ledger saw the
+    /// store remove falls back to a search, and any other keeps the published link (see the
+    /// bundle id above).
+    #[test]
+    fn an_id_nothing_claims_becomes_a_search_once_steam_or_the_ledger_has_said_so() {
+        let removed = catalogames::store_inventory::steam::delisted::get(4_278_390)
+            .expect("the test needs an app the ledger saw removed");
+        assert_eq!(
+            removed.state,
+            catalogames::store_inventory::steam::delisted::State::Removed
+        );
+        let listing = listing(vec![bundle_of(vec![identified(UNKNOWN, 4_278_390)])]);
+        let game = &listing.bundles[0].games[0];
+        assert_eq!(
+            render::page_of(game, &Classified::none()),
+            steam::search_url(UNKNOWN),
+            "unasked, the ledger's word is the only word"
+        );
+        assert_eq!(
+            render::page_of(game, &asked(&listing)),
+            steam::search_url(UNKNOWN)
         );
 
-        assert!(rendered.contains(&steam::app_url(999_999)), "{rendered}");
-        assert!(
-            !rendered.contains(&steam::app_url(entry.app_id)),
-            "matched by name: {rendered}"
+        // A region-restricted app is alive, and may be for sale where the reader is: unasked, it
+        // keeps its page.
+        let restricted = super::listing(vec![bundle_of(vec![identified(UNKNOWN, 4_600_150)])]);
+        assert_eq!(
+            render::page_of(&restricted.bundles[0].games[0], &Classified::none()),
+            steam::app_url(4_600_150)
+        );
+    }
+
+    /// A disputed id — the tables say 620 is Portal 2, the store printed it beside another title
+    /// — is asked as a bundle and a package only, and the package that answers has a page: the
+    /// app the package delivers, as Steam's own path says. Unasked, it is a search and never
+    /// Portal 2.
+    #[test]
+    fn a_disputed_id_goes_to_whatever_else_claims_it_and_never_to_the_app_the_tables_named() {
+        let listing = listing(vec![bundle_of(vec![identified(UNKNOWN, 620)])]);
+        let game = &listing.bundles[0].games[0];
+        assert_eq!(steam_inventory::identity_of(game), Identity::Disputed(620));
+        assert_eq!(
+            render::page_of(game, &Classified::none()),
+            steam::search_url(UNKNOWN)
+        );
+        assert_eq!(
+            render::page_of(game, &asked(&listing)),
+            "https://store.steampowered.com/app/12520/18_Wheels_of_Steel_American_Long_Haul"
         );
     }
 }
@@ -337,6 +504,7 @@ mod a_game_the_inventory_does_not_know {
             &listing(vec![bundle("B", &[UNKNOWN])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(rendered.contains(&steam::search_url(UNKNOWN)), "{rendered}");
     }
@@ -347,6 +515,7 @@ mod a_game_the_inventory_does_not_know {
             &listing(vec![bundle("B", &[UNKNOWN])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(
             !rendered.contains('|'),
@@ -372,6 +541,7 @@ mod how_it_is_laid_out {
             ]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert_eq!(trailing_urls(&rendered).len(), 3);
     }
@@ -382,6 +552,7 @@ mod how_it_is_laid_out {
             &listing(vec![bundle("A Bundle", &[UNKNOWN])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(!rendered.lines().next().unwrap().contains("https://"));
     }
@@ -392,6 +563,7 @@ mod how_it_is_laid_out {
             &listing(vec![bundle("A Bundle", &[UNKNOWN])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(
             rendered.lines().nth(1).unwrap().starts_with("  - "),
@@ -408,6 +580,7 @@ mod how_it_is_laid_out {
             ]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert_eq!(rendered.matches("\n\n").count(), 1, "{rendered}");
         assert!(rendered.ends_with('\n'));
@@ -426,6 +599,7 @@ mod how_it_is_laid_out {
             ]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         let link_columns: Vec<usize> = rendered
             .lines()
@@ -450,6 +624,7 @@ mod how_it_is_laid_out {
             )]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         let link_columns: Vec<usize> = rendered
             .lines()
@@ -570,15 +745,20 @@ mod the_two_review_windows {
                 contains: Vec::new(),
             },
             &Holdings::none(),
+            &Classified::none(),
         );
+        // Reached by id under the store's own wording for the same game — an edition suffix,
+        // which is what a store actually prints beside an id. A wording no game is called would
+        // contradict the id, and the two would rightly not be the same entry.
         let by_app_id = Preview::of_game(
             &Game {
-                title: "a name the store made up".to_owned(),
+                title: format!("{} - Deluxe Edition", entry.name),
                 machine_name: String::new(),
                 steam_app_id: Some(entry.app_id),
                 contains: Vec::new(),
             },
             &Holdings::none(),
+            &Classified::none(),
         );
         assert_eq!(
             by_name.detail, by_app_id.detail,
@@ -597,6 +777,7 @@ mod the_two_review_windows {
                 contains: Vec::new(),
             },
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(preview.detail.is_none());
         assert_eq!(render::line(&preview, Palette::Plain).lines().count(), 1);
@@ -618,6 +799,7 @@ mod the_two_review_windows {
                     contains: Vec::new(),
                 },
                 &Holdings::none(),
+                &Classified::none(),
             ),
             Palette::Plain,
         );
@@ -625,6 +807,7 @@ mod the_two_review_windows {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Plain,
             &Holdings::none(),
+            &Classified::none(),
         );
         let words = |s: &str| s.split_whitespace().map(str::to_owned).collect::<Vec<_>>();
 
@@ -681,7 +864,12 @@ mod colour {
     #[test]
     fn plain_output_carries_no_escape_codes() {
         // The default, and what anything piped into a file or another program must get.
-        let rendered = render::listing(&a_listing(), Palette::Plain, &Holdings::none());
+        let rendered = render::listing(
+            &a_listing(),
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert!(!rendered.contains(ESC), "{rendered:?}");
     }
 
@@ -691,8 +879,18 @@ mod colour {
         // byte-identical. Alignment, spacing, wording and the link all survive colouring —
         // which is also what stops a coloured cell from throwing the columns out.
         let listing = a_listing();
-        let plain = render::listing(&listing, Palette::Plain, &Holdings::none());
-        let coloured = render::listing(&listing, Palette::Ansi, &Holdings::none());
+        let plain = render::listing(
+            &listing,
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        );
+        let coloured = render::listing(
+            &listing,
+            Palette::Ansi,
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert_ne!(plain, coloured, "nothing was coloured at all");
         assert_eq!(plain, strip_ansi(&coloured));
     }
@@ -706,6 +904,7 @@ mod colour {
             &listing(vec![bundle("B", &[entry.name])]),
             Palette::Ansi,
             &Holdings::none(),
+            &Classified::none(),
         );
         // Nine bands, nine shades — so the colour alone ranks the game.
         let hex = entry.all_time.rating().gradient_color();
@@ -757,12 +956,22 @@ mod colour {
         let listed = listing(vec![bundle("B", &[entry.name])]);
 
         // The marker ties the line to the game above it, in plain text as well as coloured.
-        let plain = render::listing(&listed, Palette::Plain, &Holdings::none());
+        let plain = render::listing(
+            &listed,
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        );
         let detail = plain.lines().nth(2).expect("a detail line");
         assert!(detail.trim_start().starts_with('└'), "{plain}");
 
         // Grey, so the games themselves carry the eye down the list.
-        let coloured = render::listing(&listed, Palette::Ansi, &Holdings::none());
+        let coloured = render::listing(
+            &listed,
+            Palette::Ansi,
+            &Holdings::none(),
+            &Classified::none(),
+        );
         assert!(coloured.contains("\x1b[38;2;128;128;128m└"), "{coloured:?}");
     }
 
@@ -774,6 +983,7 @@ mod colour {
             &listing(vec![bundle("B", &[UNKNOWN])]),
             Palette::Ansi,
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(!rendered.contains(ESC), "{rendered:?}");
     }
@@ -799,6 +1009,7 @@ mod when_a_bundle_stops_being_buyable {
             Palette::Plain,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         )
         .lines()
         .next()
@@ -862,12 +1073,14 @@ mod when_a_bundle_stops_being_buyable {
             Palette::Ansi,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         );
         let calm = render::listing_at(
             &with_deadline(Some("2026-09-18T19:00:00")),
             Palette::Ansi,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         );
         const RED: &str = "\x1b[38;2;245;48;48m";
         assert!(urgent.contains(RED), "49h left was not marked: {urgent:?}");
@@ -881,6 +1094,7 @@ mod when_a_bundle_stops_being_buyable {
             Palette::Plain,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(!plain.contains('\x1b'), "{plain:?}");
     }
@@ -903,6 +1117,7 @@ mod what_a_bundle_costs {
             Palette::Plain,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         )
         .lines()
         .next()
@@ -922,10 +1137,13 @@ mod what_a_bundle_costs {
         // The two have to be told apart at a glance: one is what the bundle costs, the other is
         // what one game in it costs.
         let rate = heading(
-            Some(Price::PerGame {
-                each: Money::new(95, "USD"),
-                games: 25,
-            }),
+            Some(Price::PerGame(
+                Ladder::new(vec![Tier {
+                    games: 25,
+                    total: Money::new(2369, "USD"),
+                }])
+                .expect("a rung"),
+            )),
             None,
         );
         assert_eq!(rate, "A Bundle  ( $0.95/game at 25+ )");
@@ -941,10 +1159,13 @@ mod what_a_bundle_costs {
         // games than at twenty-five — and it does not multiply back to the total either, being
         // rounded to the cent. The "+" says the rate holds from that count upward.
         let line = heading(
-            Some(Price::PerGame {
-                each: Money::new(130, "USD"),
-                games: 7,
-            }),
+            Some(Price::PerGame(
+                Ladder::new(vec![Tier {
+                    games: 7,
+                    total: Money::new(910, "USD"),
+                }])
+                .expect("a rung"),
+            )),
             None,
         );
         assert_eq!(line, "A Bundle  ( $1.30/game at 7+ )");
@@ -999,6 +1220,7 @@ mod how_loudly_a_deadline_is_announced {
             Palette::Ansi,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         )
     }
 
@@ -1044,6 +1266,7 @@ mod how_loudly_a_deadline_is_announced {
             Palette::Plain,
             now(),
             &Holdings::none(),
+            &Classified::none(),
         );
         assert!(plain.contains("12h left"), "{plain}");
         assert!(!plain.contains('\x1b'), "{plain:?}");
@@ -1079,10 +1302,15 @@ mod a_product_that_is_really_several_games {
             ends_at: None,
             games,
         };
-        render::listing(&listing(vec![bundle]), Palette::Plain, &Holdings::none())
-            .lines()
-            .map(str::to_owned)
-            .collect()
+        render::listing(
+            &listing(vec![bundle]),
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        )
+        .lines()
+        .map(str::to_owned)
+        .collect()
     }
 
     #[test]
@@ -1097,8 +1325,26 @@ mod a_product_that_is_really_several_games {
             lines[1]
         );
         assert!(lines[1].starts_with("  -"), "{:?}", lines[1]);
-        assert!(lines[2].starts_with("  -->"), "{:?}", lines[2]);
-        assert!(lines[3].starts_with("  -->"), "{:?}", lines[3]);
+        // Each delivered game is a row of its own, arrowed under the pack — and, now that the
+        // snapshot knows both, each carries its detail line beneath it, so the arrows are no
+        // longer adjacent. The shape is pinned by finding them, not by counting to them.
+        let arrows: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.starts_with("  -->"))
+            .map(|(at, _)| at)
+            .collect();
+        assert_eq!(arrows.len(), 2, "{lines:#?}");
+        assert_eq!(
+            arrows[0], 2,
+            "the first game directly under the pack: {lines:#?}"
+        );
+        for between in arrows[0] + 1..arrows[1] {
+            assert!(
+                lines[between].contains('└'),
+                "only detail lines sit between the games: {lines:#?}"
+            );
+        }
     }
 
     /// Where a row's name begins, counted from the start of the line.
@@ -1164,16 +1410,56 @@ mod a_product_that_is_really_several_games {
             "Lazy Otter Double Pack",
             &[("Slots & Diapers", 4_409_870), ("Idle Chapel", 4_102_010)],
         )]);
+        // The URL is the last field of a game's row and appears nowhere else — a detail line
+        // carries none — so the links are found rather than counted to.
+        let linked: Vec<&String> = lines
+            .iter()
+            .filter(|line| line.contains("https://"))
+            .collect();
+        assert_eq!(linked.len(), 2, "{lines:#?}");
         assert!(
-            lines[2].ends_with("https://store.steampowered.com/app/4409870"),
+            linked[0].ends_with("https://store.steampowered.com/app/4409870"),
             "{:?}",
-            lines[2]
+            linked[0]
         );
         assert!(
-            lines[3].ends_with("https://store.steampowered.com/app/4102010"),
+            linked[1].ends_with("https://store.steampowered.com/app/4102010"),
             "{:?}",
-            lines[3]
+            linked[1]
         );
+    }
+
+    /// The case that motivated the snapshot fallback: a two-game pack whose games the curated
+    /// table never met. Fanatical's sub-products carry no Steam id, so each is reached by title,
+    /// and each now gets the band and detail line the curated table would have given it.
+    #[test]
+    fn a_packs_games_get_their_reviews_and_details_from_the_snapshot() {
+        let games = [("Ziggurat", 308_420), ("Ziggurat 2", 1_159_560)];
+        let lines = rendered(vec![packed("Ziggurat 1 & 2 Complete Edition", &games)]);
+        let arrows: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.starts_with("  -->"))
+            .map(|(at, _)| at)
+            .collect();
+        assert_eq!(arrows.len(), 2, "{lines:#?}");
+        for (at, (_, app_id)) in arrows.into_iter().zip(games) {
+            // Asked of the snapshot rather than written down, so a refreshed snapshot does not
+            // fail this for the game having gathered more reviews since.
+            let reviews = snapshot::by_id(app_id)
+                .and_then(|found| found.details)
+                .and_then(|details| details.reviews)
+                .expect("the snapshot holds the game and its reviews");
+            assert!(
+                lines[at].contains(&reviews.to_string()),
+                "the review count on the row: {:?}",
+                lines[at]
+            );
+            assert!(
+                lines.get(at + 1).is_some_and(|next| next.contains('└')),
+                "a detail line beneath it: {lines:#?}"
+            );
+        }
     }
 
     #[test]
@@ -1255,7 +1541,12 @@ mod the_boxes_a_chooser_is_offered {
             games,
             ..bundle("A Bundle", &[])
         };
-        render::choices(&bundle, Palette::Plain, &Holdings::none())
+        render::choices(
+            &bundle,
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        )
     }
 
     #[test]
@@ -1375,8 +1666,8 @@ mod the_link_shown_and_the_link_opened {
         };
         let game = unidentified(entry.name);
 
-        let shown = render::Preview::of_game(&game, &Holdings::none()).url;
-        let opened = render::page_of(&game);
+        let shown = render::Preview::of_game(&game, &Holdings::none(), &Classified::none()).url;
+        let opened = render::page_of(&game, &Classified::none());
         let wanted = format!("https://store.steampowered.com/app/{}", entry.app_id);
         assert_eq!(shown, wanted, "the listing must show the game's own page");
         assert_eq!(opened, wanted, "and the opener must write the same one");
@@ -1394,12 +1685,17 @@ mod the_link_shown_and_the_link_opened {
             unidentified(UNKNOWN),
         ])]);
 
-        let printed: Vec<String> = render::listing(&listing, Palette::Plain, &Holdings::none())
-            .split_whitespace()
-            .filter(|field| field.starts_with("https://store.steampowered.com"))
-            .map(str::to_owned)
-            .collect();
-        let opened: Vec<String> = catalogames::links::of_listing(&listing)
+        let printed: Vec<String> = render::listing(
+            &listing,
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        )
+        .split_whitespace()
+        .filter(|field| field.starts_with("https://store.steampowered.com"))
+        .map(str::to_owned)
+        .collect();
+        let opened: Vec<String> = catalogames::links::of_listing(&listing, &Classified::none())
             .into_iter()
             .map(|link| link.url)
             .collect();
@@ -1421,11 +1717,16 @@ mod a_stores_own_boilerplate {
 
     fn heading(title: &str, palette: Palette) -> String {
         let bundle = bundle(title, &["Game"]);
-        render::listing(&listing(vec![bundle]), palette, &Holdings::none())
-            .lines()
-            .next()
-            .expect("a heading")
-            .to_owned()
+        render::listing(
+            &listing(vec![bundle]),
+            palette,
+            &Holdings::none(),
+            &Classified::none(),
+        )
+        .lines()
+        .next()
+        .expect("a heading")
+        .to_owned()
     }
 
     const GREEN: &str = "\x1b[38;2;76;166;76m";
@@ -1485,11 +1786,16 @@ mod a_game_already_owned_somewhere_else {
         game.steam_app_id = app_id;
         let mut bundle = bundle("A Bundle", &[]);
         bundle.games = vec![game];
-        render::listing(&listing(vec![bundle]), Palette::Plain, &Holdings::none())
-            .lines()
-            .nth(1)
-            .expect("a game line")
-            .to_owned()
+        render::listing(
+            &listing(vec![bundle]),
+            Palette::Plain,
+            &Holdings::none(),
+            &Classified::none(),
+        )
+        .lines()
+        .nth(1)
+        .expect("a game line")
+        .to_owned()
     }
 
     #[test]
